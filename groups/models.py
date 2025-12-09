@@ -67,5 +67,57 @@ class Cycle(models.Model):
         return f"{self.group.name} - Cycle {self.cycle_number}"
 
 
+class Member(models.Model):
+    #The OneToOneField creates a unique connection where each Django user account has exactly one corresponding member profile for login and profile management.
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='member_profile'
+    )
+
+    # Connects Member to Group, enabling group membership.
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name='members'
+    )  
+
+    # Status of the member
+    STATUS_CHOICES = [
+        ('ACTIVE', 'Active')
+        ('INACTIVE', 'Inactive'),
+        ('PENDING', 'Pending '),
+    ]
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='PENDING'
+    )
+
+    # Defines the order in which the member receives the pot
+    payout_order = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        unique=True,
+        help_text="The sequence number for receiving the pot in the group."
+    )
+
+    # Optional: Date when the member joined the group
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.group.name}"
+    
+    class Meta:
+        unique_together = ('user', 'group')
+
+
+
+
+
+
+
+
+
 
 # Create your models here.
