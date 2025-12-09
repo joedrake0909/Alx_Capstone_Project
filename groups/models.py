@@ -16,8 +16,8 @@ class Group(models.Model):
         help_text="The amount each memmber contributes per cycle."
     )
 
-    admin =models.OneToOneField(
-        user,
+    admin = models.OneToOneField(
+        User,
         on_delete=models.CASCADE,
         related_name='managed_grooup',
         help_text="The Django User designated as the Group Administrator."
