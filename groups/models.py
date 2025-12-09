@@ -38,7 +38,7 @@ class Cycle(models.Model):
     )
 
     pot_total = models.DecimalField(
-        max_didgits=10,
+        max_digits=10,
         decimal_places=2,
         default=0.00,
         help_text="Total amount collected in this cycle (N * contribution_amount)"
