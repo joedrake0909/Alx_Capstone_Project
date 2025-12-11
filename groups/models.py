@@ -13,13 +13,13 @@ class Group(models.Model):
         max_digits=10,
         decimal_places=2,
         default=0.00,
-        help_text="The amount each memmber contributes per cycle."
+        help_text="The amount each member contributes per cycle."
     )
 
     admin = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
-        related_name='managed_grooup',
+        related_name='managed_group',
         help_text="The Django User designated as the Group Administrator."
     )
 
@@ -37,6 +37,12 @@ class Cycle(models.Model):
         related_name='cycles'
     )
 
+    
+    cycle_number = models.PositiveIntegerField(
+        help_text="The sequential number of this cycle (e.g., 1, 2, 3...)"
+    )
+
+    
     pot_total = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -84,7 +90,7 @@ class Member(models.Model):
 
     # Status of the member
     STATUS_CHOICES = [
-        ('ACTIVE', 'Active')
+        ('ACTIVE', 'Active'),
         ('INACTIVE', 'Inactive'),
         ('PENDING', 'Pending '),
     ]
