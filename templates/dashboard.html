@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+    <h2 style="color: #007bff;">{{ page_title }}</h2>
+    <p>{{ admin_message }}</p>
+
+    <div style="border: 1px solid #ccc; padding: 15px; margin-top: 20px;">
+        <h3>Phase 1 Milestones (To Do):</h3>
+        <ul>
+            <li>[ ] **Total Group Kitty:** Display calculated total here.</li>
+            <li>[ ] **Member Balances:** Display list of member balances here.</li>
+            <li>[ ] **Quick Links:** Link to Record Contribution and Member List.</li>
+        </ul>
+        <p>This page currently serves as a secure placeholder.</p>
+    </div>
+    
+    <p>Logged in as: <strong>{{ user.username }}</strong> (Superuser: {{ user.is_superuser }})</p>
+{% endblock content %}
