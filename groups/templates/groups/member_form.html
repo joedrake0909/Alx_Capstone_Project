@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Member{% endblock %}
+
+{% block content %}
+    <h2>Add New Member</h2>
+    <p>Note: On the next day, we will make sure this also creates their login account.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        {{ form.as_p }}
+        
+        <button type="submit" style="padding: 10px 15px; background-color: #28a745; color: white; border: none; cursor: pointer;">Save Member</button>
+    </form>
+{% endblock content %}

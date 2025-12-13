@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Group Members{% endblock %}
+
+{% block content %}
+    <h2 style="color: #007bff;">Group Members List</h2>
+    <a href="{% url 'member_create' %}" class="btn btn-primary">Add New Member</a>
+
+    {% if members %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Date Joined</th>
+                    </tr>
+            </thead>
+            <tbody>
+                {% for member in members %}
+                    <tr>
+                        <td>{{ member.full_name }}</td>
+                        <td>{{ member.phone_number|default:"N/A" }}</td>
+                        <td>{{ member.date_joined|date:"M d, Y" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No members have been added to the group yet. Start by adding one!</p>
+    {% endif %}
+
+{% endblock content %}
