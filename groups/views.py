@@ -23,8 +23,8 @@ class MemberListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     # Ensure the list only shows members belonging to the current group
     def get_queryset(self):
         try:
-            admin_group = Group.objects.get(admin_user=self.request.user)
-            return Member.objects.filter(group=admin_group)
+            admin_group = Group.objects.get(admin=self.request.user)
+            return Member.objects.filter(group=admin_group).order_by('joined_at')
         except Group.DoesNotExist:
             return Member.objects.none()
         
@@ -40,12 +40,12 @@ class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         return is_admin(self.request.user)
     
     model = Member
-    fields = ['full name', 'phone_number']
+    fields = ['full_name', 'phone_number']
 
     success_url = reverse_lazy('member_list')
 
     def form_valid(self, form):
-        admin_group = Group.objects.get(admin_user=self.request.user)
+        admin_group = Group.objects.get(admin=self.request.user)
         form.instance.group = admin_group
         return super().form_valid(form)
     

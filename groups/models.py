@@ -81,6 +81,9 @@ class Member(models.Model):
         related_name='member_profile'
     )
 
+    full_name = models.CharField(max_length=255, help_text="The full name of the member.")
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+
     # Connects Member to Group, enabling group membership.
     group = models.ForeignKey(
         Group,
