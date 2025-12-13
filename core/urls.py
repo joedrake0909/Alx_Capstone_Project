@@ -25,7 +25,7 @@ urlpatterns = [
     path('', include('contributions.urls')),
 
     #path("", RedirectView.as_view(pattern_name='login'), name='root' ),
-    #path('app/', include('groups.urls')),
+    path('app/', include('groups.urls')),
     #path('app/', include('contributions.urls')),
 
 ]
