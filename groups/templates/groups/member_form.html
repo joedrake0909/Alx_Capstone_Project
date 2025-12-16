@@ -1,16 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}Add New Member{% endblock %}
+{% block title %}Register Member{% endblock %}
 
 {% block content %}
-    <h2>Add New Member</h2>
-    <p>Note: On the next day, we will make sure this also creates their login account.</p>
+<div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <h2 style="margin-top: 0;">Register New Member</h2>
+    <p style="color: #666; margin-bottom: 25px;">Enter the customer details below. A digital book will be assigned in the next step.</p>
 
     <form method="post">
         {% csrf_token %}
         
-        {{ form.as_p }}
-        
-        <button type="submit" style="padding: 10px 15px; background-color: #28a745; color: white; border: none; cursor: pointer;">Save Member</button>
+        <div style="margin-bottom: 15px;">
+            {{ form.as_p }}
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" style="background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                Save Member
+            </button>
+            <a href="{% url 'member_list' %}" style="background-color: #6c757d; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-size: 16px;">
+                Cancel
+            </a>
+        </div>
     </form>
-{% endblock content %}
+</div>
+{% endblock %}
