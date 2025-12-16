@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Record Entry for {{ target_member.full_name }}</h2>
+<p>Book: {{ target_member.digital_book.book_number }} | Page: 1</p>
+
+<form method="post" style="max-width: 500px; background: white; padding: 20px; border-radius: 8px;">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px;">
+        Save Transaction
+    </button>
+</form>
+{% endblock %}

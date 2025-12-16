@@ -1,39 +1,37 @@
 {% extends "base.html" %}
-
-{% block title %}Member List{% endblock %}
-
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <h2>Group Members</h2>
-    <a href="{% url 'member_create' %}" style="background-color: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">+ Add New Member</a>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+    <div>
+        <h2 style="margin: 0;">Customer Directory</h2>
+        <p style="color: var(--secondary); margin: 5px 0 0;">Manage your savings group participants</p>
+    </div>
+    <a href="{% url 'member_create' %}" class="btn btn-primary">+ New Customer</a>
 </div>
 
-<table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <thead>
-        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-            <th style="padding: 12px; text-align: left;">Name</th>
-            <th style="padding: 12px; text-align: left;">Phone Number</th>
-            <th style="padding: 12px; text-align: left;">Status</th>
-            <th style="padding: 12px; text-align: left;">Date Joined</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for member in members %}
-        <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 12px;">{{ member.full_name }}</td>
-            <td style="padding: 12px;">{{ member.phone_number|default:"---" }}</td>
-            <td style="padding: 12px;">
-                <span style="padding: 4px 8px; border-radius: 12px; font-size: 0.8em; background: #d4edda; color: #155724;">
-                    {{ member.get_status_display }}
-                </span>
-            </td>
-            <td style="padding: 12px;">{{ member.joined_at|date:"M d, Y" }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="4" style="padding: 20px; text-align: center; color: #666;">No members registered yet.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Customer Name</th>
+                <th>Contact</th>
+                <th>Book Assigned</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+            <tr>
+                <td style="font-weight: 600;">{{ member.full_name }}</td>
+                <td>{{ member.phone_number }}</td>
+                <td><span style="color: var(--primary); font-family: monospace;">📖 Book #{{ member.digital_book.book_number }}</span></td>
+                <td><span class="badge badge-active">Active</span></td>
+                <td>
+                    <a href="{% url 'record_entry' member.id %}" class="btn btn-success" style="font-size: 0.8rem; padding: 6px 12px;">✍️ Record Entry</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

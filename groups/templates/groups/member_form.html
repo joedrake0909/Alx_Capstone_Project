@@ -1,27 +1,29 @@
 {% extends "base.html" %}
-
-{% block title %}Register Member{% endblock %}
-
 {% block content %}
-<div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-    <h2 style="margin-top: 0;">Register New Member</h2>
-    <p style="color: #666; margin-bottom: 25px;">Enter the customer details below. A digital book will be assigned in the next step.</p>
-
-    <form method="post">
-        {% csrf_token %}
-        
-        <div style="margin-bottom: 15px;">
-            {{ form.as_p }}
-        </div>
-
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button type="submit" style="background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px;">
-                Save Member
-            </button>
-            <a href="{% url 'member_list' %}" style="background-color: #6c757d; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-size: 16px;">
-                Cancel
-            </a>
-        </div>
-    </form>
+<div style="max-width: 600px;">
+    <h2 style="margin-bottom: 20px;">Register New Customer</h2>
+    <div class="card">
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px;">{{ field.label }}</label>
+                    <div style="width: 100%;">
+                        {{ field }}
+                    </div>
+                    {% if field.help_text %}<small style="color: var(--secondary);">{{ field.help_text }}</small>{% endif %}
+                </div>
+            {% endfor %}
+            <div style="display: flex; gap: 10px; margin-top: 30px;">
+                <button type="submit" class="btn btn-primary">Create Account & Assign Book</button>
+                <a href="{% url 'member_list' %}" class="btn" style="background: #e2e8f0; color: #475569;">Cancel</a>
+            </div>
+        </form>
+    </div>
 </div>
+
+<style>
+    input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; }
+    input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1); }
+</style>
 {% endblock %}

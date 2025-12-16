@@ -2,38 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{% block title %}Savings Platform{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Digital Ledger{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        /* Simple inline CSS for basic readability */
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; }
-        header { background-color: #007bff; color: white; padding: 10px 20px; text-align: center; }
-        nav { background-color: #333; overflow: hidden; }
-        nav a { float: left; display: block; color: white; text-align: center; padding: 14px 16px; text-decoration: none; }
-        nav a:hover { background-color: #ddd; color: black; }
-        .container { padding: 20px; max-width: 800px; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .content { min-height: 400px; }
+        :root {
+            --primary: #1e3a8a; --secondary: #64748b; --success: #22c55e;
+            --bg: #f8fafc; --white: #ffffff; --border: #e2e8f0;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); margin: 0; display: flex; color: #1e293b; }
+        .sidebar { width: 260px; background: var(--primary); height: 100vh; position: fixed; color: white; padding: 20px; }
+        .sidebar h1 { font-size: 1.2rem; margin-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .nav-link { display: block; color: #cbd5e1; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; }
+        .nav-link:hover { background: rgba(255,255,255,0.1); color: white; }
+        .main-content { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        .card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; }
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 12px; border-bottom: 2px solid var(--border); color: var(--secondary); font-size: 0.85rem; text-transform: uppercase; }
+        td { padding: 16px 12px; border-bottom: 1px solid var(--border); }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-active { background: #dcfce7; color: #166534; }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Digital Savings Group Manager</h1>
-    </header>
-
-    <nav>
-        {% if user.is_authenticated %}
-            <a href="{% url 'logout' %}">Logout ({{ user.username }})</a>
-            {% else %}
-            <a href="{% url 'login' %}">Login</a>
-        {% endif %}
-    </nav>
-
-    <div class="container content">
-        {% block content %}
-        {% endblock content %}
+    <div class="sidebar">
+        <h1>Admin Ledger</h1>
+        <a href="{% url 'member_list' %}" class="nav-link">👥 Customers</a>
+        <a href="#" class="nav-link">📑 All Books</a>
+        <a href="/admin/" class="nav-link">⚙️ System Admin</a>
     </div>
-
-    <footer>
-        <p style="text-align: center; margin-top: 20px;">&copy; Capstone Project 2025</p>
-    </footer>
+    <div class="main-content">
+        {% if messages %}
+            {% for message in messages %}
+                <div style="padding: 15px; background: #dcfce7; border-left: 5px solid var(--success); margin-bottom: 20px;">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
 </body>
 </html>
