@@ -73,12 +73,27 @@ class Cycle(models.Model):
         return f"{self.group.name} - Cycle {self.cycle_number}"
 
 
+
+class DigitalBook(models.Model):
+     book_number = models.IntegerField(unique=True, help_text="The seqential unique number for this ledger book.")
+     created_at = models.DateTimeField(auto_now_add=True)
+
+     def __str__(self):
+         return f"Book #{self.book_number}"
+
+
+
+
+
+
+
 class Member(models.Model):
     #The OneToOneField creates a unique connection where each Django user account has exactly one corresponding member profile for login and profile management.
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
-        related_name='member_profile'
+        related_name='member_profile',
+        null=True, blank=True
     )
 
     full_name = models.CharField(max_length=255, help_text="The full name of the member.")
@@ -90,6 +105,15 @@ class Member(models.Model):
         on_delete=models.CASCADE,
         related_name='members'
     )  
+
+    # Link to the DigitalBook 
+    digital_book = models.OneToOneField(
+        DigitalBook,
+        on_delete=models.PROTECT,
+        null=True, blank=True
+    )
+    
+        
 
     # Status of the member
     STATUS_CHOICES = [
@@ -122,6 +146,8 @@ class Member(models.Model):
 
 
 
+
+     
 
 
 
