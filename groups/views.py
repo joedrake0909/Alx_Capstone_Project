@@ -2,7 +2,7 @@ from django.views.generic import ListView, CreateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from . models import Member, Cycle, Group, DigitalBook
-from contributions.models import Page
+from contributions.models import Entry, Page
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.contrib.auth.models import User
@@ -100,7 +100,42 @@ class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
 
 
+class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    model = Entry
+    template_name = 'groups/entry_form.html'
+    fields = ['date', 'row_number', 'deposit_amount', 'withdrawal_amount', 'status']
+    
+    def test_func(self):
+        return self.request.user.is_superuser
 
+    def get_context_data(self, **kwargs):
+        # This helps us show which member we are recording for in the HTML
+        context = super().get_context_data(**kwargs)
+        context['target_member'] = Member.objects.get(id=self.kwargs['member_id'])
+        return context
+
+    def form_valid(self, form):
+        member = Member.objects.get(id=self.kwargs['member_id'])
+        
+        # 1. Logic to find the correct Page object
+        # For now, we default to Page 1. Later we can make this dynamic.
+        page = Page.objects.get(digital_book=member.digital_book, page_number=1)
+        
+        # 2. Calculate the Balance (Simplified for now)
+        # Balance = Deposit - Withdrawal
+        deposit = form.cleaned_data.get('deposit_amount', 0)
+        withdrawal = form.cleaned_data.get('withdrawal_amount', 0)
+        form.instance.current_balance = deposit - withdrawal
+        
+        # 3. Attach the hidden fields
+        form.instance.member = member
+        form.instance.page = page
+        
+        messages.success(self.request, f"Entry recorded for {member.full_name}")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('member_list')
 
 
 

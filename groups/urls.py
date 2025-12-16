@@ -8,5 +8,9 @@ urlpatterns = [
 
     # Member Create View
     path('members/new/', views.MemberCreateView.as_view(), name='member_create'),
+
+    path('members/<int:member_id>/record/', views.RecordEntryView.as_view(), name='record_entry'),
+
+    
 ]
 
