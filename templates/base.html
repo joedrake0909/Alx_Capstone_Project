@@ -3,44 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Digital Ledger{% endblock %}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>Digital Ledger Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
     <style>
         :root {
-            --primary: #1e3a8a; --secondary: #64748b; --success: #22c55e;
-            --bg: #f8fafc; --white: #ffffff; --border: #e2e8f0;
+            --sidebar-bg: #0f172a;
+            --accent-color: #38bdf8;
+            --body-bg: #f1f5f9;
         }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg); margin: 0; display: flex; color: #1e293b; }
-        .sidebar { width: 260px; background: var(--primary); height: 100vh; position: fixed; color: white; padding: 20px; }
-        .sidebar h1 { font-size: 1.2rem; margin-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
-        .nav-link { display: block; color: #cbd5e1; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 5px; transition: 0.3s; }
-        .nav-link:hover { background: rgba(255,255,255,0.1); color: white; }
-        .main-content { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
-        .card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; }
-        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-success { background: var(--success); color: white; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { text-align: left; padding: 12px; border-bottom: 2px solid var(--border); color: var(--secondary); font-size: 0.85rem; text-transform: uppercase; }
-        td { padding: 16px 12px; border-bottom: 1px solid var(--border); }
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-        .badge-active { background: #dcfce7; color: #166534; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--body-bg);
+            margin: 0;
+        }
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            background: var(--sidebar-bg);
+            color: white;
+            position: fixed;
+            padding: 20px;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 40px;
+            min-height: 100vh;
+        }
+        .nav-link {
+            color: #94a3b8;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: block;
+        }
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255,255,255,0.1);
+            color: var(--accent-color);
+        }
+        .card-custom {
+            background: white;
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            padding: 25px;
+        }
+        .btn-ledger {
+            background: #1e293b;
+            color: white;
+            border-radius: 8px;
+            padding: 8px 20px;
+            border: none;
+        }
+        .btn-ledger:hover {
+            background: #334155;
+            color: var(--accent-color);
+        }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <h1>Admin Ledger</h1>
-        <a href="{% url 'member_list' %}" class="nav-link">👥 Customers</a>
-        <a href="#" class="nav-link">📑 All Books</a>
-        <a href="/admin/" class="nav-link">⚙️ System Admin</a>
+        <h3 class="mb-4" style="color: var(--accent-color);">LedgerOS</h3>
+        <hr style="border-color: rgba(255,255,255,0.1);">
+        <nav>
+            <a href="{% url 'member_list' %}" class="nav-link active">👥 Customer Directory</a>
+            <a href="{% url 'member_create' %}" class="nav-link">➕ New Registration</a>
+            <a href="/admin/" class="nav-link">⚙️ System Settings</a>
+        </nav>
     </div>
+
     <div class="main-content">
         {% if messages %}
             {% for message in messages %}
-                <div style="padding: 15px; background: #dcfce7; border-left: 5px solid var(--success); margin-bottom: 20px;">{{ message }}</div>
+                <div class="alert alert-info border-0 shadow-sm">{{ message }}</div>
             {% endfor %}
         {% endif %}
+        
         {% block content %}{% endblock %}
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

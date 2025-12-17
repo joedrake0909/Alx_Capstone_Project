@@ -1,16 +1,11 @@
 from django.urls import path
 from . import views
 
-
 urlpatterns = [
-    # Member List View
     path('members/', views.MemberListView.as_view(), name='member_list'),
-
-    # Member Create View
     path('members/new/', views.MemberCreateView.as_view(), name='member_create'),
-
-    path('members/<int:member_id>/record/', views.RecordEntryView.as_view(), name='record_entry'),
-
     
+    # We use 'pk' for both to keep it simple and consistent
+    path('members/<int:pk>/book/', views.MemberBookView.as_view(), name='member_book'),
+    path('members/<int:pk>/record/', views.RecordEntryView.as_view(), name='record_entry'),
 ]
-

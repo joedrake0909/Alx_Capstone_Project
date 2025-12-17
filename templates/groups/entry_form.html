@@ -1,13 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Record Entry for {{ target_member.full_name }}</h2>
-<p>Book: {{ target_member.digital_book.book_number }} | Page: 1</p>
+<div style="max-width: 500px; margin: 0 auto;">
+    <h2 style="color: #1e3a8a;">New Ledger Entry</h2>
+    <div class="card">
+        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+            <p style="margin: 0; font-size: 0.9rem;"><strong>Member:</strong> {{ target_member.full_name }}</p>
+            <p style="margin: 5px 0 0; font-size: 0.9rem;"><strong>Location:</strong> Page {{ page_num }}, Row {{ row_num }}</p>
+        </div>
 
-<form method="post" style="max-width: 500px; background: white; padding: 20px; border-radius: 8px;">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px;">
-        Save Transaction
-    </button>
-</form>
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #475569;">{{ field.label }}</label>
+                    {{ field }}
+                </div>
+            {% endfor %}
+            
+            <div style="display: flex; gap: 10px; margin-top: 25px;">
+                <button type="submit" class="btn btn-success" style="flex: 2;">Save Row</button>
+                <a href="{% url 'member_book' target_member.id %}" class="btn" style="flex: 1; background: #e2e8f0; color: #475569; text-align: center;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
+    input:focus { border-color: #1e3a8a; outline: none; box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1); }
+</style>
 {% endblock %}
