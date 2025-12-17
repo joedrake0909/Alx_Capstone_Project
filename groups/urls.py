@@ -8,4 +8,6 @@ urlpatterns = [
     # We use 'pk' for both to keep it simple and consistent
     path('members/<int:pk>/book/', views.MemberBookView.as_view(), name='member_book'),
     path('members/<int:pk>/record/', views.RecordEntryView.as_view(), name='record_entry'),
+
+    path('login-success/', views.login_success, name='login_success'),
 ]
