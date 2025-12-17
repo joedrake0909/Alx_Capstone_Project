@@ -169,3 +169,21 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('member_book', kwargs={'pk': self.kwargs['member_id']})
+    
+    def login_success(requset):
+        #Traffic controller: Redirects users based on their role 
+        # immediately after they log in.
+
+        if request.user.is_superuser:
+            return redirect('member_list')
+        else:
+            # # A normal member goes to their personal digital book
+            #  We find the member object linked to this user
+            try:
+                member = request.user.member
+                return redirect('customer_view', pk=member.id)
+            except AttributeError:
+                # fallback if user is not a superuser or member
+                return redirect('/')
+                
+    
