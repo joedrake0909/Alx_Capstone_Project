@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Ledger Pro</title>
+    <title>LedgerOS - Digital Passbook</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     
@@ -12,35 +12,43 @@
             --sidebar-bg: #0f172a;
             --accent-color: #38bdf8;
             --body-bg: #f1f5f9;
+            --primary-blue: #1e40af;
         }
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: var(--body-bg);
             margin: 0;
         }
+        /* Sidebar only appears when logged in */
         .sidebar {
-            width: 250px;
+            width: 260px;
             height: 100vh;
             background: var(--sidebar-bg);
             color: white;
             position: fixed;
             padding: 20px;
+            z-index: 1000;
         }
         .main-content {
-            margin-left: 250px;
-            padding: 40px;
+            {% if user.is_authenticated %} margin-left: 260px; {% endif %}
             min-height: 100vh;
+            transition: all 0.3s;
         }
-        .nav-link {
+        .top-navbar {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 15px 30px;
+        }
+        .nav-link-custom {
             color: #94a3b8;
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 8px;
-            transition: all 0.3s;
             text-decoration: none;
             display: block;
+            transition: 0.3s;
         }
-        .nav-link:hover, .nav-link.active {
+        .nav-link-custom:hover, .nav-link-custom.active {
             background: rgba(255,255,255,0.1);
             color: var(--accent-color);
         }
@@ -51,48 +59,63 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             padding: 25px;
         }
-        .btn-ledger {
-            background: #1e293b;
-            color: white;
-            border-radius: 8px;
-            padding: 8px 20px;
-            border: none;
-        }
-        .btn-ledger:hover {
-            background: #334155;
-            color: var(--accent-color);
-        }
     </style>
 </head>
 <body>
+
+    {% if user.is_authenticated %}
     <div class="sidebar">
-        <h3 class="mb-4" style="color: var(--accent-color);">LedgerOS</h3>
+        <h3 class="mb-4 fw-bold" style="color: var(--accent-color);">LedgerOS</h3>
         <hr style="border-color: rgba(255,255,255,0.1);">
         <nav class="nav flex-column">
             {% if user.is_superuser %}
-            <a class="nav-link text-white py-3 border-bottom border-secondary" href="{% url 'member_list' %}">
-            📊 Dashboard
-            </a>
-            <a class="nav-link text-white py-3 border-bottom border-secondary" href="{% url 'member_create' %}">
-            ➕ Register Member
-            </a>
+                <a class="nav-link-custom" href="{% url 'member_list' %}">📊 Dashboard</a>
+                <a class="nav-link-custom" href="{% url 'member_create' %}">➕ Register Member</a>
             {% else %}
-            <a class="nav-link text-white py-3 border-bottom border-secondary" href="{% url 'customer_view' user.member.id %}">
-            📖 My Digital Book
-            </a>
+                <a class="nav-link-custom" href="{% url 'customer_view' user.member.id %}">📖 My Digital Book</a>
             {% endif %}
-    
+            <a class="nav-link-custom" href="#">⚙️ Profile Settings</a>
         </nav>
     </div>
+    {% endif %}
 
     <div class="main-content">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-info border-0 shadow-sm">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-        
-        {% block content %}{% endblock %}
+        <div class="top-navbar d-flex justify-content-between align-items-center shadow-sm">
+            <div>
+                {% if user.is_authenticated %}
+                    <span class="text-muted small">Welcome back,</span> 
+                    <span class="fw-bold">{{ user.username|capfirst }}</span>
+                {% else %}
+                    <span class="fw-bold text-primary" style="font-size: 1.2rem;">LedgerOS</span>
+                {% endif %}
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                {% if user.is_authenticated %}
+                    <span class="badge bg-light text-dark border p-2">
+                        🏢 {{ user.member.group.name|default:"Main Office" }}
+                    </span>
+                    <form method="post" action="{% url 'logout' %}" class="m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sign Out</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn-primary px-4 shadow-sm">Login</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="p-4 p-md-5">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-info border-0 shadow-sm">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            
+            <div class="container-fluid">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
