@@ -68,10 +68,20 @@
     <div class="sidebar">
         <h3 class="mb-4" style="color: var(--accent-color);">LedgerOS</h3>
         <hr style="border-color: rgba(255,255,255,0.1);">
-        <nav>
-            <a href="{% url 'member_list' %}" class="nav-link active">👥 Customer Directory</a>
-            <a href="{% url 'member_create' %}" class="nav-link">➕ New Registration</a>
-            <a href="/admin/" class="nav-link">⚙️ System Settings</a>
+        <nav class="nav flex-column">
+            {% if user.is_superuser %}
+            <a class="nav-link text-white py-3 border-bottom border-secondary" href="{% url 'member_list' %}">
+            📊 Dashboard
+            </a>
+            <a class="nav-link text-white py-3 border-bottom border-secondary" href="{% url 'member_create' %}">
+            ➕ Register Member
+            </a>
+            {% else %}
+            <a class="nav-link text-white py-3 border-bottom border-secondary" href="{% url 'customer_view' user.member.id %}">
+            📖 My Digital Book
+            </a>
+            {% endif %}
+    
         </nav>
     </div>
 
