@@ -168,10 +168,10 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy('member_book', kwargs={'pk': self.kwargs['member_id']})
+        return reverse_lazy('member_book', kwargs={'pk': self.kwargs['pk']})
     
 
-def login_success(requset):
+def login_success(request):
         #Traffic controller: Redirects users based on their role 
         # immediately after they log in.
 
