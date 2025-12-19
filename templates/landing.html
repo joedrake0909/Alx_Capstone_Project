@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="row align-items-center py-5">
+        <div class="col-lg-6">
+            <h1 class="display-3 fw-bold text-dark">Your Savings,<br><span class="text-primary">Fully Digital.</span></h1>
+            <p class="lead text-muted mb-4">No more paper books. No more math errors. Track your group contributions with 100% transparency and security.</p>
+            <div class="d-flex gap-3">
+                <a href="{% url 'login' %}" class="btn btn-primary btn-lg px-5 shadow">Open My Passbook</a>
+                <a href="#services" class="btn btn-outline-secondary btn-lg px-4">Our Services</a>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="p-5 bg-primary bg-opacity-10 rounded-5 text-center">
+                <span style="font-size: 8rem;">📊</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="services" class="row g-4 pt-5">
+        <div class="col-md-4">
+            <div class="card-custom p-4 h-100 border-0 shadow-sm">
+                <h4 class="fw-bold">Real-time Tracking</h4>
+                <p class="text-muted small">See your deposits and balance updates the second they are recorded by the admin.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-custom p-4 h-100 border-0 shadow-sm">
+                <h4 class="fw-bold">Security First</h4>
+                <p class="text-muted small">Cloud-based storage means your financial history is never lost or damaged.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-custom p-4 h-100 border-0 shadow-sm">
+                <h4 class="fw-bold">Universal Book #1</h4>
+                <p class="text-muted small">Every member starts their journey with a fresh digital book, unique to them.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

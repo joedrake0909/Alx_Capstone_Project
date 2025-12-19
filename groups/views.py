@@ -6,6 +6,7 @@ from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.db.models import Sum
+from django.views.generic.edit import UpdateView
 
 # Import your models
 from .models import Member, Cycle, Group, DigitalBook
@@ -290,3 +291,22 @@ def login_success(request):
             return redirect('customer_view', pk=member.id)
         except AttributeError:
             return redirect('/')
+
+class MemberProfileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = Member
+    fields = ['phone_number'] # Strictly restrict to phone only
+    template_name = 'groups/profile_settings.html'
+    
+    def test_func(self):
+        # Ensure members can only edit their own profile
+        return self.request.user == self.get_object().user
+
+    def get_success_url(self):
+        return reverse_lazy('customer_view', kwargs={'pk': self.object.id})
+    
+
+def landing_page(request):
+    # If a user is already logged in, send them to their dashboard instead of the landing page
+    if request.user.is_authenticated:
+        return redirect('login_success')
+    return render(request, 'landing.html')

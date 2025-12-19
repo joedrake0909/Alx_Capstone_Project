@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card-custom shadow-sm p-5 border-0 bg-white">
+            <h3 class="fw-bold text-dark mb-4">Profile Settings</h3>
+            
+            <div class="mb-4 p-3 bg-light rounded-3">
+                <small class="text-muted d-block">Your Savings Group</small>
+                <span class="fw-bold text-primary">{{ member.group.name }}</span>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Update Phone Number</label>
+                    <input type="text" name="phone_number" class="form-control form-control-lg" value="{{ member.phone_number }}">
+                    <div class="form-text">This number will be used for payment notifications.</div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 btn-lg shadow-sm">Save Changes</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

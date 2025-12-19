@@ -28,4 +28,6 @@ urlpatterns = [
     path('app/', include('groups.urls')),
     #path('app/', include('contributions.urls')),
 
+    path('', group_views.landing_page, name='landing'),
+
 ]

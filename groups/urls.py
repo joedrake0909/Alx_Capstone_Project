@@ -18,4 +18,6 @@ urlpatterns = [
     
     # 4. Customer Access (Regular member views)
     path('my-book/<int:pk>/', views.CustomerBookView.as_view(), name='customer_view'),
+
+    path('profile/<int:pk>/edit/', views.MemberProfileUpdateView.as_view(), name='profile_settings'),
 ]
