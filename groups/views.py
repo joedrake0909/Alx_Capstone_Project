@@ -1,10 +1,11 @@
 from django import forms
-from django.views.generic import ListView, CreateView, DetailView
+from django.views.generic import ListView, CreateView, DetailView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.db.models import Sum
 
 # Import your models
 from .models import Member, Cycle, Group, DigitalBook
@@ -20,7 +21,56 @@ class DateInput(forms.DateInput):
     """Helper to force HTML5 date picker in forms."""
     input_type = 'date'
 
-# --- VIEWS ---
+# --- SUPERUSER DASHBOARD VIEWS (The Master Control Panel) ---
+
+class SuperuserDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """MASTER DASHBOARD: The Stats Page for superuser."""
+    template_name = 'groups/superuser_dashboard.html'
+    login_url = '/login/'
+
+    def test_func(self):
+        return self.request.user.is_superuser
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Stats for Dashboard icons
+        context['total_groups'] = Group.objects.count()
+        context['total_users'] = Member.objects.count()
+        context['total_savings'] = Entry.objects.aggregate(Sum('deposit_amount'))['deposit_amount__sum'] or 0
+        return context
+
+
+class AdminUserListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    """ADMIN MENU: List of Group Admins/Treasurers with their groups."""
+    model = Group
+    template_name = 'groups/admin_user_list.html'
+    context_object_name = 'admin_groups'
+    login_url = '/login/'
+
+    def test_func(self):
+        return self.request.user.is_superuser
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add any additional context if needed
+        return context
+
+
+class AllTransactionsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    """TRANSACTIONS MENU: All money moves, latest first."""
+    model = Entry
+    template_name = 'groups/all_transactions.html'
+    context_object_name = 'transactions'
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def get_queryset(self):
+        # Latest transactions at the top
+        return Entry.objects.all().select_related('member', 'member__group').order_by('-date', '-id')
+
+
+# --- REGULAR ADMIN VIEWS (For Group Treasurers) ---
 
 class MemberListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     """Admin Directory: List all members in the Treasurer's group."""
@@ -169,22 +219,74 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy('member_book', kwargs={'pk': self.kwargs['pk']})
+
+
+# --- CUSTOMER VIEWS (For Regular Members) ---
+
+class CustomerBookView(LoginRequiredMixin, DetailView):
+    """Regular member's view of their own digital book."""
+    model = Member
+    template_name = 'groups/customer_book.html'
+    context_object_name = 'member'
     
+    def get_object(self):
+        """Ensure members can only view their own book."""
+        # Get the member profile for the logged-in user
+        member = get_object_or_404(Member, user=self.request.user)
+        
+        # Additional security: check if the URL pk matches the user's member id
+        if str(member.id) != self.kwargs.get('pk'):
+            messages.error(self.request, "You can only view your own digital book.")
+            return None
+        return member
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        if self.object is None:
+            return context
+            
+        page_num = self.request.GET.get('page', 1)
+        
+        try:
+            page = Page.objects.get(digital_book=self.object.digital_book, page_number=page_num)
+            existing_entries = page.entries.all()
+            
+            # Create the 31-row structure (similar to MemberBookView)
+            rows = []
+            for i in range(1, 32):
+                entry = existing_entries.filter(row_number=i).first()
+                rows.append({'number': i, 'data': entry})
+            
+            context['rows'] = rows
+            context['current_page'] = page
+            
+            # Calculate total balance for this member
+            total_deposits = Entry.objects.filter(member=self.object).aggregate(
+                total=Sum('deposit_amount')
+            )['total'] or 0
+            total_withdrawals = Entry.objects.filter(member=self.object).aggregate(
+                total=Sum('withdrawal_amount')
+            )['total'] or 0
+            context['member_balance'] = total_deposits - total_withdrawals
+            
+        except Page.DoesNotExist:
+            context['error'] = "Book pages not found."
+        
+        return context
+
+
+# --- AUTHENTICATION VIEW ---
 
 def login_success(request):
-        #Traffic controller: Redirects users based on their role 
-        # immediately after they log in.
-
-        if request.user.is_superuser:
-            return redirect('member_list')
-        else:
-            # # A normal member goes to their personal digital book
-            #  We find the member object linked to this user
-            try:
-                member = request.user.member
-                return redirect('customer_view', pk=member.id)
-            except AttributeError:
-                # fallback if user is not a superuser or member
-                return redirect('/')
-                
-    
+    """Slingshot users to their respective homes after login."""
+    if request.user.is_superuser:
+        # Redirect Superuser to the NEW Dashboard
+        return redirect('super_dashboard')
+    else:
+        # Redirect regular Member to their Digital Book
+        try:
+            member = request.user.member
+            return redirect('customer_view', pk=member.id)
+        except AttributeError:
+            return redirect('/')

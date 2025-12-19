@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-5">
+    <h2 class="fw-bold text-dark">Digital Book Dashboard</h2>
+    <p class="text-muted">Global Platform Overview</p>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-md-6 col-xl-4">
+        <div class="card-custom d-flex align-items-center p-4 border-0 shadow-sm">
+            <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3" style="font-size: 2rem;">🏢</div>
+            <div>
+                <h6 class="text-muted mb-0">Total Groups</h6>
+                <h2 class="fw-bold mb-0">{{ total_groups }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-4">
+        <div class="card-custom d-flex align-items-center p-4 border-0 shadow-sm">
+            <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3" style="font-size: 2rem;">👥</div>
+            <div>
+                <h6 class="text-muted mb-0">Total Users</h6>
+                <h2 class="fw-bold mb-0">{{ total_users }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-4">
+        <div class="card-custom d-flex align-items-center p-4 border-0 shadow-sm">
+            <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3" style="font-size: 2rem;">💰</div>
+            <div>
+                <h6 class="text-muted mb-0">Total Savings</h6>
+                <h2 class="fw-bold mb-0">GHS {{ total_savings|floatformat:2 }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-md-12">
+        <div class="card-custom p-4">
+            <h5 class="fw-bold mb-3">📊 Quick Platform Stats</h5>
+            <div class="row">
+                <div class="col-md-3 text-center py-3 border-end">
+                    <div class="fs-2 mb-2">📈</div>
+                    <h4 class="fw-bold text-primary">{{ total_groups }}</h4>
+                    <small class="text-muted">Active Groups</small>
+                </div>
+                <div class="col-md-3 text-center py-3 border-end">
+                    <div class="fs-2 mb-2">👤</div>
+                    <h4 class="fw-bold text-success">{{ total_users }}</h4>
+                    <small class="text-muted">Registered Users</small>
+                </div>
+                <div class="col-md-3 text-center py-3 border-end">
+                    <div class="fs-2 mb-2">💵</div>
+                    <h4 class="fw-bold text-warning">GHS {{ total_savings|floatformat:2 }}</h4>
+                    <small class="text-muted">Total Savings</small>
+                </div>
+                <div class="col-md-3 text-center py-3">
+                    <div class="fs-2 mb-2">📅</div>
+                    <h4 class="fw-bold text-info">{{ total_users|default:0|add:total_groups|default:0 }}</h4>
+                    <small class="text-muted">Total Entities</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card-custom">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">🚀 Quick Actions</h6>
+                <span class="badge bg-primary">Admin</span>
+            </div>
+            <div class="d-grid gap-2">
+                <a href="{% url 'admin_user_list' %}" class="btn btn-outline-primary btn-sm">
+                    👨‍💼 View All Admins
+                </a>
+                <a href="{% url 'all_transactions' %}" class="btn btn-outline-success btn-sm">
+                    💸 View Transactions
+                </a>
+                <a href="#" class="btn btn-outline-info btn-sm">
+                    📊 Generate Report
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card-custom">
+            <h6 class="fw-bold mb-3">ℹ️ Platform Information</h6>
+            <p class="small text-muted mb-3">
+                Welcome to the <strong>Digital Book</strong> Master Control Panel. 
+                From here you can manage all groups, users, and transactions across the platform.
+            </p>
+            <div class="alert alert-light border d-flex align-items-center mb-0">
+                <span class="me-2">💡</span>
+                <div>
+                    <small class="text-muted">
+                        <strong>Tip:</strong> Use the sidebar menu to navigate between different management sections.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info border-0 shadow-sm d-flex align-items-center mt-5">
+    <span class="me-2">ℹ️</span>
+    <div>
+        <strong>Welcome to the Master Control Panel.</strong> 
+        <span class="text-muted">Use the left menu to manage all platform data.</span>
+    </div>
+</div>
+{% endblock %}

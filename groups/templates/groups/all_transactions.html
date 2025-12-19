@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="fw-bold mb-4 text-dark">Global Transaction Log</h2>
+
+<div class="card-custom shadow-sm p-0 overflow-hidden border-0">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="bg-light">
+            <tr>
+                <th class="ps-4">Date</th>
+                <th>Member (User)</th>
+                <th>Group</th>
+                <th>Savings (Dep)</th>
+                <th>Withdrawal</th>
+                <th>Current Balance</th>
+                <th class="text-end pe-4">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tx in transactions %}
+            <tr>
+                <td class="ps-4 text-muted small">{{ tx.date|date:"d M, Y" }}</td>
+                <td>
+                    <div class="fw-bold text-dark">{{ tx.member.full_name }}</div>
+                    <div class="text-muted" style="font-size: 0.75rem;">ID: #{{ tx.member.id }}</div>
+                </td>
+                <td><span class="badge bg-secondary bg-opacity-10 text-dark">{{ tx.member.group.name }}</span></td>
+                <td class="text-success fw-bold">+{{ tx.deposit_amount }}</td>
+                <td class="text-danger">-{{ tx.withdrawal_amount }}</td>
+                <td class="fw-bold" style="color: #0f172a;">{{ tx.current_balance }}</td>
+                <td class="text-end pe-4">
+                    <span class="badge {% if tx.status == 'APPROVED' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                        {{ tx.status }}
+                    </span>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center py-5 text-muted">No transactions recorded yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

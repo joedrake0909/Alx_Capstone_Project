@@ -19,7 +19,6 @@
             background-color: var(--body-bg);
             margin: 0;
         }
-        /* Sidebar only appears when logged in */
         .sidebar {
             width: 260px;
             height: 100vh;
@@ -59,6 +58,17 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             padding: 25px;
         }
+        /* Fix for mobile responsiveness */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -67,14 +77,40 @@
     <div class="sidebar">
         <h3 class="mb-4 fw-bold" style="color: var(--accent-color);">LedgerOS</h3>
         <hr style="border-color: rgba(255,255,255,0.1);">
-        <nav class="nav flex-column">
+        
+        <nav class="nav flex-column mt-3">
+            <div class="px-3 mb-4 text-info fw-bold" style="font-size: 1.2rem; letter-spacing: 1px;">DIGITAL BOOK</div>
+
             {% if user.is_superuser %}
-                <a class="nav-link-custom" href="{% url 'member_list' %}">📊 Dashboard</a>
-                <a class="nav-link-custom" href="{% url 'member_create' %}">➕ Register Member</a>
+                <a class="nav-link-custom {% if request.resolver_match.url_name == 'super_dashboard' %}active{% endif %}" 
+                   href="{% url 'super_dashboard' %}">📊 Dashboard</a>
+                
+                <a class="nav-link-custom {% if request.resolver_match.url_name == 'admin_user_list' %}active{% endif %}" 
+                   href="{% url 'admin_user_list' %}">👨‍💼 Admin</a>
+                
+                <a class="nav-link-custom {% if request.resolver_match.url_name == 'member_list' %}active{% endif %}" 
+                   href="{% url 'member_list' %}">👥 Users</a>
+                
+                <a class="nav-link-custom {% if request.resolver_match.url_name == 'all_transactions' %}active{% endif %}" 
+                   href="{% url 'all_transactions' %}">💸 Transactions</a>
+                
+                <hr style="border-color: rgba(255,255,255,0.1);">
+                
+                <a class="nav-link-custom" href="#">⚙️ Settings</a>
+                <a class="nav-link-custom" href="#">👤 Profile</a>
             {% else %}
-                <a class="nav-link-custom" href="{% url 'customer_view' user.member.id %}">📖 My Digital Book</a>
+                <!-- REGULAR USER MENU -->
+                {% if user.member %}
+                    <a class="nav-link-custom {% if request.resolver_match.url_name == 'customer_view' %}active{% endif %}" 
+                       href="{% url 'customer_view' user.member.id %}">📖 My Digital Book</a>
+                    <a class="nav-link-custom" href="#">⚙️ Profile Settings</a>
+                {% else %}
+                    <!-- If user doesn't have member profile -->
+                    <div class="text-warning p-2">
+                        ⚠️ No member profile
+                    </div>
+                {% endif %}
             {% endif %}
-            <a class="nav-link-custom" href="#">⚙️ Profile Settings</a>
         </nav>
     </div>
     {% endif %}
@@ -92,9 +128,25 @@
             
             <div class="d-flex align-items-center gap-3">
                 {% if user.is_authenticated %}
-                    <span class="badge bg-light text-dark border p-2">
-                        🏢 {{ user.member.group.name|default:"Main Office" }}
-                    </span>
+                    <!-- SAFE CHECK: Only try to access user.member if it exists -->
+                    {% if user.is_superuser %}
+                        <span class="badge bg-primary text-white border p-2">
+                            👑 Super Admin
+                        </span>
+                    {% elif user.member and user.member.group %}
+                        <span class="badge bg-light text-dark border p-2">
+                            🏢 {{ user.member.group.name|default:"Main Office" }}
+                        </span>
+                    {% elif user.member %}
+                        <span class="badge bg-secondary text-white border p-2">
+                            🏢 No Group
+                        </span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark border p-2">
+                            ⚠️ No Profile
+                        </span>
+                    {% endif %}
+                    
                     <form method="post" action="{% url 'logout' %}" class="m-0">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline-danger">Sign Out</button>
@@ -108,7 +160,10 @@
         <div class="p-4 p-md-5">
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-info border-0 shadow-sm">{{ message }}</div>
+                    <div class="alert alert-{{ message.tags|default:'info' }} border-0 shadow-sm alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 {% endfor %}
             {% endif %}
             
@@ -119,5 +174,17 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-dismiss alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                var alerts = document.querySelectorAll('.alert');
+                alerts.forEach(function(alert) {
+                    var bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                });
+            }, 5000);
+        });
+    </script>
 </body>
 </html>
