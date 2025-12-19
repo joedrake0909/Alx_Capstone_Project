@@ -11,49 +11,62 @@
     </a>
 </div>
 
-<div class="card-custom shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th class="border-0">ID</th>
-                    <th class="border-0">Customer Name</th>
-                    <th class="border-0">Phone</th>
-                    <th class="border-0">Book Number</th>
-                    <th class="border-0 text-end">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for member in members %}
-                <tr>
-                    <td class="text-muted fw-bold">#{{ member.id }}</td>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; font-size: 0.9rem;">
-                                {{ member.full_name|slice:":1" }}
-                            </div>
-                            <span class="fw-semibold text-dark">{{ member.full_name }}</span>
+<div class="card-custom shadow-sm p-0 overflow-hidden border-0">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="bg-light">
+            <tr>
+                <th class="ps-4">ID</th>
+                <th>Member Name</th>
+                <th>Contact</th>
+                <th>Savings Group</th>
+                <th>Status</th>
+                <th class="text-end pe-4">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+            <tr>
+                <td class="ps-4 text-muted fw-bold">#{{ member.id }}</td>
+
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
+                             style="width: 32px; height: 32px; font-size: 0.8rem;">
+                            {{ member.full_name|slice:":1"|upper }}
                         </div>
-                    </td>
-                    <td>{{ member.phone_number }}</td>
-                    <td>
-                        <span class="badge bg-info text-dark bg-opacity-10" style="font-size: 0.9rem;">
-                            📖 Book #{{ member.digital_book.book_number }}
-                        </span>
-                    </td>
-                    <td class="text-end">
-                        <a href="{% url 'member_book' pk=member.id %}" class="btn btn-ledger">
-                            Open Ledger
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="text-center py-5 text-muted">No members found in your group.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+                        <span class="fw-semibold text-dark">{{ member.full_name }}</span>
+                    </div>
+                </td>
+
+                <td class="small">{{ member.phone_number }}</td>
+
+                <td>
+                    <span class="badge rounded-pill px-3 py-2"
+                          style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">
+                        🏢 {{ member.group.name|default:"Unassigned" }}
+                    </span>
+                </td>
+
+                <td>
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                        {{ member.status }}
+                    </span>
+                </td>
+
+                <td class="text-end pe-4">
+                    <a href="{% url 'member_book' pk=member.id %}" class="btn btn-sm btn-ledger">
+                        Open Ledger
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center py-5 text-muted">
+                    No members found.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}

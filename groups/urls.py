@@ -20,4 +20,9 @@ urlpatterns = [
     path('my-book/<int:pk>/', views.CustomerBookView.as_view(), name='customer_view'),
 
     path('profile/<int:pk>/edit/', views.MemberProfileUpdateView.as_view(), name='profile_settings'),
+    
+    # 5. Group Management (Added the missing URL)
+    path('group/create/', views.GroupCreateView.as_view(), name='group_create'),
+    
+    # Note: You have 'member/create/' duplicated (line 12 and line 22) - remove one duplicate
 ]

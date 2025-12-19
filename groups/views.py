@@ -96,20 +96,16 @@ class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     login_url = '/login/'
     template_name = 'groups/member_form.html'
     model = Member
-    fields = ['full_name', 'phone_number']
+    fields = ['full_name', 'phone_number', 'group']  # Added 'group' back to fields
     success_url = reverse_lazy('member_list')
 
     def test_func(self):
         return is_admin(self.request.user)
 
     def form_valid(self, form):
-        # 1. Get Group
-        try:
-            admin_group = Group.objects.get(admin=self.request.user)
-        except Group.DoesNotExist:
-            messages.error(self.request, "Setup Error: Admin group not found.")
-            return self.render_to_response(self.get_context_data(form=form))
-
+        # 1. Get the selected group from the form
+        selected_group = form.cleaned_data['group']
+        
         # 2. Generate User
         base_name = form.cleaned_data['full_name'].replace(" ", "").lower()
         username = base_name
@@ -132,7 +128,8 @@ class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         # 5. Save Member
         member = form.save(commit=False)
         member.user = new_user
-        member.group = admin_group
+        # Use the selected group from the form instead of auto-assigning
+        member.group = selected_group
         member.digital_book = new_book
         member.status = 'ACTIVE'
         member.save()
@@ -310,3 +307,19 @@ def landing_page(request):
     if request.user.is_authenticated:
         return redirect('login_success')
     return render(request, 'landing.html')
+
+
+
+class GroupCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    model = Group
+    fields = ['name'] # You only need to provide the name (e.g., "Makata Market Women")
+    template_name = 'groups/group_form.html'
+    success_url = reverse_lazy('super_dashboard')
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def form_valid(self, form):
+        # Automatically set the Superadmin as the manager of this group
+        form.instance.admin = self.request.user
+        return super().form_valid(form)

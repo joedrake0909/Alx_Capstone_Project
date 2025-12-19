@@ -1,29 +1,56 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div style="max-width: 600px;">
-    <h2 style="margin-bottom: 20px;">Register New Customer</h2>
-    <div class="card">
-        <form method="post">
-            {% csrf_token %}
-            {% for field in form %}
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px;">{{ field.label }}</label>
-                    <div style="width: 100%;">
-                        {{ field }}
-                    </div>
-                    {% if field.help_text %}<small style="color: var(--secondary);">{{ field.help_text }}</small>{% endif %}
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-6 col-lg-5">
+        <a href="{% url 'member_list' %}" class="text-decoration-none text-muted small mb-3 d-inline-block">
+            ← Back to Member Directory
+        </a>
+
+        <div class="card-custom shadow-lg p-5 border-0 bg-white">
+            <div class="text-center mb-4">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <span class="fs-3">👤</span>
                 </div>
-            {% endfor %}
-            <div style="display: flex; gap: 10px; margin-top: 30px;">
-                <button type="submit" class="btn btn-primary">Create Account & Assign Book</button>
-                <a href="{% url 'member_list' %}" class="btn" style="background: #e2e8f0; color: #475569;">Cancel</a>
+                <h3 class="fw-bold text-dark">Register New Member</h3>
+                <p class="text-muted small">Automated book and account creation will follow.</p>
             </div>
-        </form>
+
+            <form method="post" class="needs-validation">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-dark small">Full Name</label>
+                    <input type="text" name="full_name" class="form-control form-control-lg border-2 shadow-sm" 
+                           placeholder="e.g. Kwesi Mensah" style="border-radius: 10px; font-size: 0.95rem;">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-dark small">Phone Number</label>
+                    <input type="text" name="phone_number" class="form-control form-control-lg border-2 shadow-sm" 
+                           placeholder="024 XXX XXXX" style="border-radius: 10px; font-size: 0.95rem;">
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold text-dark small">Assign to Group</label>
+                    <select name="group" class="form-select form-select-lg border-2 shadow-sm" style="border-radius: 10px; font-size: 0.95rem;">
+                        <option value="" selected disabled>Select a savings group...</option>
+                        {% for choice in form.group.field.queryset %}
+                            <option value="{{ choice.pk }}">{{ choice.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm" 
+                        style="border-radius: 12px; letter-spacing: 0.5px;">
+                    Create Member Account
+                </button>
+            </form>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p class="text-muted small">The member will be assigned <strong>Digital Book #1</strong> by default.</p>
+        </div>
     </div>
 </div>
-
-<style>
-    input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; }
-    input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1); }
-</style>
 {% endblock %}

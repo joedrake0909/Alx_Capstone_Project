@@ -27,6 +27,7 @@
             position: fixed;
             padding: 20px;
             z-index: 1000;
+            overflow-y: auto;
         }
         .main-content {
             {% if user.is_authenticated %} margin-left: 260px; {% endif %}
@@ -58,6 +59,50 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             padding: 25px;
         }
+        
+        /* The base button style */
+        .btn-ledger {
+            background: #1e293b; /* Deep slate */
+            color: white;
+            border-radius: 8px;
+            padding: 8px 20px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.3s ease; /* Smooth transition for all properties */
+        }
+
+        /* The specific hover effect you requested */
+        .btn-ledger:hover {
+            background: var(--accent-color); /* Changes to your bright sky blue */
+            color: #0f172a; /* Dark text for high contrast on blue */
+            transform: translateY(-2px); /* Slight lift effect */
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4); /* Glowing blue shadow */
+        }
+
+        /* Optional: Change the table row color when hovering the Action column area */
+        tr:hover td:last-child {
+            background-color: rgba(56, 189, 248, 0.03);
+        }
+        
+        /* Modern Form Controls */
+        .form-control, .form-select {
+            border-color: #e2e8f0;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
+            background-color: #fff;
+        }
+
+        /* Make the labels look more "SaaS" */
+        .form-label {
+            margin-bottom: 0.4rem;
+            color: #475569;
+        }
+        
         /* Fix for mobile responsiveness */
         @media (max-width: 768px) {
             .sidebar {
@@ -82,6 +127,7 @@
             <div class="px-3 mb-4 text-info fw-bold" style="font-size: 1.2rem; letter-spacing: 1px;">DIGITAL BOOK</div>
 
             {% if user.is_superuser %}
+                <!-- ADMIN MENU -->
                 <a class="nav-link-custom {% if request.resolver_match.url_name == 'super_dashboard' %}active{% endif %}" 
                    href="{% url 'super_dashboard' %}">📊 Dashboard</a>
                 
@@ -94,8 +140,24 @@
                 <a class="nav-link-custom {% if request.resolver_match.url_name == 'all_transactions' %}active{% endif %}" 
                    href="{% url 'all_transactions' %}">💸 Transactions</a>
                 
+                <!-- QUICK ACTIONS SECTION -->
+                <hr style="border-color: rgba(255,255,255,0.1);">
+                <small class="text-muted px-3 mb-2 uppercase" style="font-size: 0.7rem; letter-spacing: 1px;">QUICK ACTIONS</small>
+                
+                <a class="nav-link-custom" href="{% url 'group_create' %}">🏢 Create New Group</a>
+                <a class="nav-link-custom" href="{% url 'member_create' %}">👤 Add New Member</a>
+                
+                <!-- SYSTEM CONTROL SECTION -->
+                <hr style="border-color: rgba(255,255,255,0.1);">
+                <small class="text-muted px-3 mb-2 uppercase" style="font-size: 0.7rem; letter-spacing: 1px;">SYSTEM CONTROL</small>
+                
+                <a class="nav-link-custom text-warning" href="/admin/" target="_blank">
+                    ⚙️ Database Backend
+                </a>
+                
                 <hr style="border-color: rgba(255,255,255,0.1);">
                 
+                <!-- Other admin links -->
                 <a class="nav-link-custom" href="#">⚙️ Settings</a>
                 <a class="nav-link-custom" href="#">👤 Profile</a>
             {% else %}

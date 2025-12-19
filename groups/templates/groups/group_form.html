@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-md-5">
+        <div class="card-custom shadow-lg p-5 border-0 bg-white text-center">
+            <div class="bg-info bg-opacity-10 text-info rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                <span class="fs-3">🏢</span>
+            </div>
+            <h3 class="fw-bold text-dark mb-4">Launch New Group</h3>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-4 text-start">
+                    <label class="form-label fw-bold small">Group Name</label>
+                    <input type="text" name="name" class="form-control form-control-lg border-2" 
+                           placeholder="e.g. Greater Accra Savings Union" style="border-radius: 10px;">
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold" style="border-radius: 12px;">
+                    Initialize Group
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
