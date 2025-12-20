@@ -1,14 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+from django.db import models
+from django.contrib.auth.models import User
+
 class Group(models.Model):
     name = models.CharField(max_length=100, unique=True)
-
-
-    # A description of the group, its purpose, or rules
     description = models.TextField()
-
-    # The agreed-upon amount to contribute per cycle
+    
     contribution_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -16,18 +15,20 @@ class Group(models.Model):
         help_text="The amount each member contributes per cycle."
     )
 
-    admin = models.OneToOneField(
+    # FIX: Change OneToOneField to ForeignKey
+    admin = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='managed_group',
+        related_name='managed_groups',  # Changed from 'managed_group' (singular)
         help_text="The Django User designated as the Group Administrator."
     )
-
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
+
+
 
     
 class Cycle(models.Model):
