@@ -102,12 +102,14 @@ class Cycle(models.Model):
 
 
 class DigitalBook(models.Model):
-     book_number = models.IntegerField(unique=True, help_text="The seqential unique number for this ledger book.")
-     created_at = models.DateTimeField(auto_now_add=True)
+    book_number = models.PositiveIntegerField(
+        default=1,
+        help_text="The sequential number for this ledger book."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
-     def __str__(self):
-         return f"Book #{self.book_number}"
-
+    def __str__(self):
+        return f"Book #{self.book_number}"
 
 
 
