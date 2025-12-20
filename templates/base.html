@@ -190,22 +190,11 @@
             
             <div class="d-flex align-items-center gap-3">
                 {% if user.is_authenticated %}
-                    <!-- SAFE CHECK: Only try to access user.member if it exists -->
                     {% if user.is_superuser %}
-                        <span class="badge bg-primary text-white border p-2">
-                            👑 Super Admin
-                        </span>
-                    {% elif user.member and user.member.group %}
-                        <span class="badge bg-light text-dark border p-2">
-                            🏢 {{ user.member.group.name|default:"Main Office" }}
-                        </span>
-                    {% elif user.member %}
-                        <span class="badge bg-secondary text-white border p-2">
-                            🏢 No Group
-                        </span>
-                    {% else %}
-                        <span class="badge bg-warning text-dark border p-2">
-                            ⚠️ No Profile
+                        <span class="badge bg-primary px-3 py-2">👑 Platform Owner</span>
+                    {% elif user.member.group %}
+                        <span class="badge bg-light text-dark border px-3 py-2">
+                            🏢 {{ user.member.group.name }}
                         </span>
                     {% endif %}
                     

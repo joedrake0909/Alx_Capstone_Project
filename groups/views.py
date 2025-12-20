@@ -74,7 +74,7 @@ class AllTransactionsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 # --- REGULAR ADMIN VIEWS (For Group Treasurers) ---
 
 class MemberListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    """Admin Directory: List all members in the Treasurer's group."""
+    """Admin Directory: List all members."""
     login_url = '/login/'
     template_name = 'groups/member_list.html'
     model = Member
@@ -84,10 +84,16 @@ class MemberListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         return is_admin(self.request.user)
     
     def get_queryset(self):
+        # FIX: Instead of getting one group (which crashes if you have 4),
+        # we show ALL members since you are the Superadmin.
+        if self.request.user.is_superuser:
+            return Member.objects.select_related('group').all().order_by('-id')
+        
+        # Keep original logic for regular admins (if any)
         try:
             admin_group = Group.objects.get(admin=self.request.user)
             return Member.objects.filter(group=admin_group).order_by('joined_at')
-        except Group.DoesNotExist:
+        except (Group.DoesNotExist, Group.MultipleObjectsReturned):
             return Member.objects.none()
 
 
@@ -169,37 +175,12 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
 
 
 class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
-    """Entry Form: Saves data to a specific row and page."""
-    model = Entry
-    template_name = 'groups/entry_form.html'
-    fields = ['date', 'deposit_amount', 'withdrawal_amount']
-    
-    def test_func(self):
-        return is_admin(self.request.user)
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        form.fields['date'].widget = DateInput()
-        return form
-
-    def get_initial(self):
-        initial = super().get_initial()
-        from datetime import date
-        initial['date'] = date.today()
-        return initial
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['target_member'] = Member.objects.get(id=self.kwargs['pk'])
-        context['row_num'] = self.request.GET.get('row')
-        context['page_num'] = self.request.GET.get('page')
-        return context
+    # ... (keep existing fields and get_form/get_initial) ...
 
     def form_valid(self, form):
         member = Member.objects.get(id=self.kwargs['pk'])
         row_num = int(self.request.GET.get('row', 1))
         page_num = int(self.request.GET.get('page', 1))
-
         page = Page.objects.get(digital_book=member.digital_book, page_number=page_num)
         
         form.instance.member = member
@@ -207,16 +188,18 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         form.instance.row_number = row_num
         form.instance.status = 'APPROVED'
 
-        # Math logic
+        # FIX: Pull the PREVIOUS balance so we don't start at 0 every time
+        last_entry = Entry.objects.filter(member=member).order_by('-date', '-row_number', '-id').first()
+        previous_balance = last_entry.current_balance if last_entry else 0
+
         deposit = form.cleaned_data.get('deposit_amount', 0)
         withdrawal = form.cleaned_data.get('withdrawal_amount', 0)
-        form.instance.current_balance = deposit - withdrawal
+        
+        # CORRECT MATH: New Balance = Previous + Deposit - Withdrawal
+        form.instance.current_balance = previous_balance + deposit - withdrawal
 
-        messages.success(self.request, f"Entry saved to Row {row_num}!")
+        messages.success(self.request, f"Entry saved! New Balance: {form.instance.current_balance}")
         return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy('member_book', kwargs={'pk': self.kwargs['pk']})
 
 
 # --- CUSTOMER VIEWS (For Regular Members) ---
