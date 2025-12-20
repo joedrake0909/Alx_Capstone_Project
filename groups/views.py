@@ -111,6 +111,9 @@ class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     def form_valid(self, form):
         # 1. Get the selected group from the form
         selected_group = form.cleaned_data['group']
+
+        # 🌟 GENERATE THE GROUP-SPECIFIC ID
+        new_member_id = generate_next_member_id(selected_group)
         
         # 2. Generate User
         base_name = form.cleaned_data['full_name'].replace(" ", "").lower()

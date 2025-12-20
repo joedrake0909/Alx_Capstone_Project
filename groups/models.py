@@ -3,6 +3,32 @@ from django.contrib.auth.models import User
 
 from django.db import models
 from django.contrib.auth.models import User
+import string
+
+def generate_next_member_id(group):
+    """
+    Logic: 
+    0001-9999
+    Then A001-A999, B001-B999, etc.
+    """
+    count = Member.objects.filter(group=group).count() + 1
+    
+    # 1. Standard numbering (1 to 9999)
+    if count <= 9999:
+        return f"{count:04d}" # Pads with zeros: 0001, 0002...
+    
+    # 2. Alphanumeric numbering (A001, B001...)
+    # We subtract 9999 because we are starting a new set
+    overflow_count = count - 9999
+    letter_index = (overflow_count - 1) // 999  # 0 for A, 1 for B...
+    number_part = (overflow_count - 1) % 999 + 1
+    
+    alphabet = string.ascii_uppercase # A-Z
+    if letter_index < len(alphabet):
+        prefix = alphabet[letter_index]
+        return f"{prefix}{number_part:03d}"
+    
+    return f"EXT{count}" # Fallback if you exceed Z999
 
 class Group(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -97,6 +123,7 @@ class Member(models.Model):
         null=True, blank=True
     )
 
+    member_id = models.CharField(max_length=10, blank=True)
     full_name = models.CharField(max_length=255, help_text="The full name of the member.")
     phone_number = models.CharField(max_length=20, blank=True, null=True)
 
