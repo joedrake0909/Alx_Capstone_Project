@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.db.models import Sum
 from django.views.generic.edit import UpdateView
+import string
 
 # Import your models
 from .models import Member, Cycle, Group, DigitalBook
