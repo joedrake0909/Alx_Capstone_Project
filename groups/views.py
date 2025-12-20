@@ -143,9 +143,7 @@ class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         new_user = User.objects.create_user(username=username, password='password123')
 
         # --- Create Book ---
-        last_book = DigitalBook.objects.order_by('-book_number').first()
-        next_num = (last_book.book_number + 1) if last_book else 1
-        new_book = DigitalBook.objects.create(book_number=next_num)
+        new_book = DigitalBook.objects.create(book_number=1)
 
         # --- Create Pages ---
         pages = [Page(digital_book=new_book, page_number=i) for i in range(1, 21)]

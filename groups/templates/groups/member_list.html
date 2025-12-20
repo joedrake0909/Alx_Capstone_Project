@@ -26,37 +26,24 @@
         <tbody>
             {% for member in members %}
             <tr>
-                <td class="ps-4 fw-bold text-primary" style="font-family: 'Courier New', monospace;">
-                    {{ member.member_id|default:"—" }}
-                </td>
+                <td class="ps-4 fw-bold text-primary">{{ member.member_id|default:"—" }}</td>
 
-                <td>
-                    <div class="d-flex align-items-center">
-                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
-                             style="width: 32px; height: 32px; font-size: 0.8rem;">
-                            {{ member.full_name|slice:":1"|upper }}
-                        </div>
-                        <span class="fw-semibold text-dark">{{ member.full_name }}</span>
-                    </div>
-                </td>
+                <td>{{ member.full_name }}</td>
 
                 <td class="small">{{ member.phone_number|default:"—" }}</td>
 
                 <td>
-                    <span class="badge rounded-pill px-3 py-2"
-                          style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">
+                    <span class="badge rounded-pill bg-light text-dark border">
                         🏢 {{ member.group.name|default:"Unassigned" }}
                     </span>
                 </td>
 
                 <td>
-                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
-                        {{ member.status }}
-                    </span>
+                    <span class="text-muted small">Standard Book #1</span>
                 </td>
 
                 <td class="text-end pe-4">
-                    <a href="{% url 'member_book' pk=member.id %}" class="btn btn-sm btn-ledger">
+                    <a href="{% url 'member_book' pk=member.id %}" class="btn btn-ledger">
                         Open Ledger
                     </a>
                 </td>
