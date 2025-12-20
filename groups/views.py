@@ -99,24 +99,40 @@ class MemberListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 
 class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
-    """Registration: Creates User, Book, and 20 Pages automatically."""
+    """Registration: Creates User, Book, and 20 Pages automatically with custom ID."""
     login_url = '/login/'
     template_name = 'groups/member_form.html'
     model = Member
-    fields = ['full_name', 'phone_number', 'group']  # Added 'group' back to fields
+    fields = ['full_name', 'phone_number', 'group']
     success_url = reverse_lazy('member_list')
 
     def test_func(self):
         return is_admin(self.request.user)
 
-    def form_valid(self, form):
-        # 1. Get the selected group from the form
-        selected_group = form.cleaned_data['group']
-
-        # 🌟 GENERATE THE GROUP-SPECIFIC ID
-        new_member_id = generate_next_member_id(selected_group)
+    # 🌟 INTERNAL LOGIC FOR ID GENERATION
+    def get_next_member_id(self, group):
+        """Generates 0001-9999 then A001-Z999 based on group count."""
+        count = Member.objects.filter(group=group).count() + 1
         
-        # 2. Generate User
+        if count <= 9999:
+            return f"{count:04d}"
+        
+        overflow = count - 9999
+        letter_idx = (overflow - 1) // 999
+        num_part = (overflow - 1) % 999 + 1
+        
+        if letter_idx < len(string.ascii_uppercase):
+            prefix = string.ascii_uppercase[letter_idx]
+            return f"{prefix}{num_part:03d}"
+        return f"EXT{count}"
+
+    def form_valid(self, form):
+        selected_group = form.cleaned_data['group']
+        
+        # 🌟 CALL THE INTERNAL METHOD
+        new_member_id = self.get_next_member_id(selected_group)
+        
+        # --- Generate User ---
         base_name = form.cleaned_data['full_name'].replace(" ", "").lower()
         username = base_name
         counter = 1
@@ -126,25 +142,25 @@ class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         
         new_user = User.objects.create_user(username=username, password='password123')
 
-        # 3. Create Book
+        # --- Create Book ---
         last_book = DigitalBook.objects.order_by('-book_number').first()
         next_num = (last_book.book_number + 1) if last_book else 1
         new_book = DigitalBook.objects.create(book_number=next_num)
 
-        # 4. Create 20 Pages (Bulk)
+        # --- Create Pages ---
         pages = [Page(digital_book=new_book, page_number=i) for i in range(1, 21)]
         Page.objects.bulk_create(pages)
 
-        # 5. Save Member
+        # --- Save Member ---
         member = form.save(commit=False)
         member.user = new_user
-        # Use the selected group from the form instead of auto-assigning
         member.group = selected_group
+        member.member_id = new_member_id # 🌟 SET THE NEW ID
         member.digital_book = new_book
         member.status = 'ACTIVE'
         member.save()
 
-        messages.success(self.request, f"Registered {member.full_name}! Book #{next_num} ready.")
+        messages.success(self.request, f"Registered {member.full_name}! ID: {new_member_id}")
         return redirect(self.success_url)
 
 
