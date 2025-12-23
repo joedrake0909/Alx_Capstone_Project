@@ -169,6 +169,7 @@ class Cycle(models.Model):
 
 class DigitalBook(models.Model):
     """Digital ledger book for a member"""
+    member = models.ForeignKey('Member', on_delete=models.CASCADE, related_name='all_books', null=True)
     book_number = models.PositiveIntegerField(
         default=1,
         help_text="The sequential number for this ledger book.",

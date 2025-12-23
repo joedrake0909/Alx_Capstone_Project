@@ -192,11 +192,20 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         return context
 
 
+from django.db import transaction
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.views.generic.edit import CreateView
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from groups.models import Entry, Member, Page, DigitalBook
+from groups.utils import is_admin
+from django.utils import timezone
+
 class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = Entry
     fields = ['deposit_amount', 'withdrawal_amount', 'date']
-    # 1. Point to your existing file name (updated from your template)
-    template_name = 'groups/record_entry_form.html' 
+    template_name = 'groups/record_entry_form.html'
 
     def test_func(self):
         return is_admin(self.request.user)
@@ -205,126 +214,171 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         context = super().get_context_data(**kwargs)
         member = get_object_or_404(Member, id=self.kwargs['pk'])
         
-        # 2. Match the variable names used in your HTML
+        # Get current page from URL or default to 1
+        page_num = self.request.GET.get('page', 1)
+        
         context['target_member'] = member
-        context['page_num'] = self.request.GET.get('page', 1)
-        context['row_num'] = self.request.GET.get('row', 1)
+        context['page_num'] = page_num
+        
+        # Calculate current row number for display (next available row on current page)
+        try:
+            current_book = member.digital_book
+            current_page = Page.objects.get(digital_book=current_book, page_number=page_num)
+            occupied_rows = current_page.entries.values_list('row_number', flat=True)
+            # Find first empty row on this page
+            next_row = next((i for i in range(1, 32) if i not in occupied_rows), 1)
+            context['row_num'] = next_row
+        except (DigitalBook.DoesNotExist, Page.DoesNotExist):
+            context['row_num'] = 1
+        
         return context
 
     def form_valid(self, form):
         member = get_object_or_404(Member, id=self.kwargs['pk'])
-        page_num = int(self.request.GET.get('page', 1))
-        page = get_object_or_404(Page, digital_book=member.digital_book, page_number=page_num)
-        
-        # Get the fixed rate from the group
         fixed_rate = member.group.fixed_deposit_amount
         total_deposit = form.cleaned_data.get('deposit_amount', 0)
         withdrawal = form.cleaned_data.get('withdrawal_amount', 0)
         entry_date = form.cleaned_data.get('date')
 
-        # Get current balance
-        last_entry = Entry.objects.filter(member=member).order_by('-id').first()
-        current_bal = last_entry.current_balance if last_entry else 0
+        with transaction.atomic():
+            # 1. GLOBAL BALANCE LOOKUP - Get the absolute last entry for this member
+            last_entry = Entry.objects.filter(
+                member=member
+            ).order_by(
+                '-page__digital_book__book_number', 
+                '-page__page_number', 
+                '-row_number'
+            ).first()
+            current_bal = last_entry.current_balance if last_entry else 0
 
-        # --- CASE 1: WITHDRAWAL (One Row) ---
-        if withdrawal > 0:
-            if withdrawal > current_bal:
-                messages.error(self.request, "Insufficient balance!")
-                return redirect(self.request.path)
-            
-            # Find first empty row
-            occupied_rows = page.entries.values_list('row_number', flat=True)
-            next_row = next((i for i in range(1, 32) if i not in occupied_rows), None)
-            
-            if next_row:
-                Entry.objects.create(
-                    member=member, page=page, row_number=next_row,
-                    date=entry_date, withdrawal_amount=withdrawal,
-                    current_balance=current_bal - withdrawal, status='APPROVED'
-                )
-                messages.success(self.request, f"Withdrawal of {withdrawal} recorded.")
-            else:
-                messages.error(self.request, "This page is full!")
-
-        # --- CASE 2: DEPOSIT (Multi-Row Overflow) ---
-        elif total_deposit > 0:
-            # Calculate how many full rows this deposit represents
-            num_rows = int(total_deposit // fixed_rate)
-            remainder = total_deposit % fixed_rate
-            occupied_rows = list(page.entries.values_list('row_number', flat=True))
-            
-            rows_filled = 0
-            temp_balance = current_bal
-
-            # First, fill available rows with fixed rate
-            for i in range(1, 32):
-                if rows_filled >= num_rows:
-                    break
+            # 2. SMART ROW FINDER (Across Books/Pages)
+            def get_next_available_slot(target_member):
+                # Get or create current digital book
+                current_book = target_member.digital_book
+                if not current_book:
+                    # Create first digital book for member
+                    last_book = DigitalBook.objects.all().order_by('-book_number').first()
+                    new_book_num = last_book.book_number + 1 if last_book else 1
+                    current_book = DigitalBook.objects.create(book_number=new_book_num)
+                    target_member.digital_book = current_book
+                    target_member.save()
                 
-                if i not in occupied_rows:
-                    temp_balance += fixed_rate
-                    Entry.objects.create(
-                        member=member, page=page, row_number=i,
-                        date=entry_date, deposit_amount=fixed_rate,
-                        current_balance=temp_balance, status='APPROVED'
+                # Check all pages in current book (1-20)
+                for page_num in range(1, 21):
+                    page, created = Page.objects.get_or_create(
+                        digital_book=current_book, 
+                        page_number=page_num,
+                        defaults={'digital_book': current_book, 'page_number': page_num}
                     )
-                    rows_filled += 1
-            
-            # Check for remainder (partial deposit)
-            if remainder > 0:
-                # Find next available row for remainder
-                for i in range(1, 32):
-                    if i not in occupied_rows and i not in [entry.row_number for entry in page.entries.all()]:
-                        temp_balance += remainder
-                        Entry.objects.create(
-                            member=member, page=page, row_number=i,
-                            date=entry_date, deposit_amount=remainder,
-                            current_balance=temp_balance, status='APPROVED'
-                        )
-                        rows_filled += 1
-                        messages.info(self.request, f"Recorded partial deposit of {remainder} GHS")
-                        break
-            
-            # Provide feedback
-            if rows_filled < num_rows:
-                remaining_full_rows = num_rows - rows_filled
-                remaining_amount = remaining_full_rows * fixed_rate
-                messages.warning(
-                    self.request, 
-                    f"Filled {rows_filled} rows. "
-                    f"{remaining_amount} GHS couldn't fit on this page. "
-                    f"Please continue on next page."
+                    occupied = page.entries.values_list('row_number', flat=True)
+                    
+                    # Check all rows on this page (1-31)
+                    for row_num in range(1, 32):
+                        if row_num not in occupied:
+                            return page, row_num
+                
+                # If we get here, current book is full → CREATE NEW BOOK
+                last_book_num = DigitalBook.objects.all().order_by('-book_number').first().book_number
+                new_book = DigitalBook.objects.create(book_number=last_book_num + 1)
+                
+                # Update member's digital book to the new one
+                target_member.digital_book = new_book
+                target_member.save()
+                
+                # Create first page in new book
+                first_page = Page.objects.create(digital_book=new_book, page_number=1)
+                return first_page, 1
+
+            # --- PROCESS WITHDRAWAL ---
+            if withdrawal > 0:
+                if withdrawal > current_bal:
+                    messages.error(self.request, "Insufficient balance!")
+                    return redirect(self.request.path)
+                
+                target_page, target_row = get_next_available_slot(member)
+                new_balance = current_bal - withdrawal
+                
+                Entry.objects.create(
+                    member=member, 
+                    page=target_page, 
+                    row_number=target_row,
+                    date=entry_date, 
+                    withdrawal_amount=withdrawal,
+                    current_balance=new_balance, 
+                    status='APPROVED'
                 )
-            else:
+                
+                messages.success(self.request, f"Withdrawal of {withdrawal} GHS recorded.")
+                
+            # --- PROCESS DEPOSIT (Overflow) ---
+            elif total_deposit > 0:
+                # Calculate number of full rows and remainder
+                num_full_rows = int(total_deposit // fixed_rate)
+                remainder = total_deposit % fixed_rate
+                rows_created = 0
+                temp_balance = current_bal
+                
+                # Create full fixed-rate rows
+                for _ in range(num_full_rows):
+                    target_page, target_row = get_next_available_slot(member)
+                    temp_balance += fixed_rate
+                    
+                    Entry.objects.create(
+                        member=member, 
+                        page=target_page, 
+                        row_number=target_row,
+                        date=entry_date, 
+                        deposit_amount=fixed_rate,
+                        current_balance=temp_balance, 
+                        status='APPROVED'
+                    )
+                    rows_created += 1
+                
+                # Create remainder row if any
+                if remainder > 0:
+                    target_page, target_row = get_next_available_slot(member)
+                    temp_balance += remainder
+                    
+                    Entry.objects.create(
+                        member=member, 
+                        page=target_page, 
+                        row_number=target_row,
+                        date=entry_date, 
+                        deposit_amount=remainder,
+                        current_balance=temp_balance, 
+                        status='APPROVED'
+                    )
+                    rows_created += 1
+                
+                # Success message
                 if remainder > 0:
                     messages.success(
                         self.request, 
-                        f"Successfully filled {rows_filled} rows "
-                        f"({num_rows} full rows + {remainder} GHS partial deposit)!"
+                        f"Created {rows_created} entries: "
+                        f"{num_full_rows} full rows ({fixed_rate} GHS each) + "
+                        f"1 partial row ({remainder} GHS)"
                     )
                 else:
                     messages.success(
                         self.request, 
-                        f"Successfully filled {rows_filled} rows!"
+                        f"Created {rows_created} entries at {fixed_rate} GHS each"
                     )
-        
-        # --- CASE 3: NO DEPOSIT OR WITHDRAWAL ---
-        else:
-            messages.error(self.request, "Please enter either a deposit or withdrawal amount.")
+            
+            # --- NO DEPOSIT OR WITHDRAWAL ---
+            else:
+                messages.error(self.request, "Please enter either a deposit or withdrawal amount.")
+                return self.form_invalid(form)
 
-        return redirect(reverse_lazy('member_book', kwargs={'pk': member.id}) + f"?page={page_num}")
+        return redirect(reverse_lazy('member_book', kwargs={'pk': member.id}))
     
     def get_form(self, form_class=None):
         """Customize form initialization"""
         form = super().get_form(form_class)
         
-        # Set initial values if needed
+        # Set initial values
         member = get_object_or_404(Member, id=self.kwargs['pk'])
-        page_num = self.request.GET.get('page', 1)
-        row_num = self.request.GET.get('row', 1)
         
         # Pre-fill date with today
-        from django.utils import timezone
         form.fields['date'].initial = timezone.now().date()
         
         # Optionally pre-fill deposit amount with group fixed rate
@@ -336,8 +390,7 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     def get_success_url(self):
         """Define the success URL"""
         member = get_object_or_404(Member, id=self.kwargs['pk'])
-        page_num = self.request.GET.get('page', 1)
-        return reverse_lazy('member_book', kwargs={'pk': member.id}) + f"?page={page_num}"
+        return reverse_lazy('member_book', kwargs={'pk': member.id})
 
 
 
