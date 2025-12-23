@@ -168,6 +168,8 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     template_name = 'groups/book_view.html'
     context_object_name = 'member'
 
+    
+
     def test_func(self):
         return is_admin(self.request.user)
 
@@ -190,6 +192,8 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         except Page.DoesNotExist:
             context['error'] = "Book pages missing."
         return context
+    
+    
 
 
 from django.db import transaction
@@ -241,46 +245,23 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         entry_date = form.cleaned_data.get('date')
 
         with transaction.atomic():
-            # Find the active page/row
-            target_page, target_row = self.get_next_available_slot(member)
-            
-            # 🌟 BOOK-ISOLATED BALANCE LOOKUP
-            # We only look for the last entry IN THE SAME BOOK as our target page
-            last_entry = Entry.objects.filter(
-                member=member, 
-                page__digital_book=target_page.digital_book
-            ).order_items('-page__page_number', '-row_number').first()
-            
-            # If it's a new book, current_bal starts at 0 automatically
-            current_bal = last_entry.current_balance if last_entry else 0
-
-            # --- PROCESS WITHDRAWAL ---
-            if withdrawal > 0:
-                if withdrawal > current_bal:
-                    messages.error(self.request, "Insufficient balance in this book!")
-                    return redirect(self.request.path)
-                
-                Entry.objects.create(
-                    member=member, page=target_page, row_number=target_row,
-                    date=entry_date, withdrawal_amount=withdrawal,
-                    current_balance=current_bal - withdrawal, status='APPROVED'
-                )
-
             # --- PROCESS DEPOSIT (Overflow) ---
-            elif total_deposit > 0:
+            if total_deposit > 0:
                 num_rows = int(total_deposit // fixed_rate)
                 for _ in range(num_rows):
-                    # Re-check slot in case the loop pushes us to a new page/book
+                    # Get the next available slot (Auto-jumps to new page/book)
                     target_page, target_row = self.get_next_available_slot(member)
                     
-                    # Re-calculate balance if we just jumped into a brand new book
-                    last_entry_in_loop = Entry.objects.filter(
+                    # 🌟 PAGE-ISOLATED BALANCE LOOKUP
+                    # Look only for the last entry on THIS SPECIFIC PAGE
+                    last_entry_on_page = Entry.objects.filter(
                         member=member, 
-                        page__digital_book=target_page.digital_book
-                    ).order_by('-page__page_number', '-row_number').first()
+                        page=target_page # Isolated to the current page
+                    ).order_by('-row_number').first()
                     
-                    loop_bal = last_entry_in_loop.current_balance if last_entry_in_loop else 0
-                    new_bal = loop_bal + fixed_rate
+                    # If this is Row 1 of a new page, balance is 0
+                    page_bal = last_entry_on_page.current_balance if last_entry_on_page else 0
+                    new_bal = page_bal + fixed_rate
                     
                     Entry.objects.create(
                         member=member, page=target_page, row_number=target_row,
@@ -288,7 +269,27 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                         current_balance=new_bal, status='APPROVED'
                     )
 
-        messages.success(self.request, "Transaction recorded. New book started at zero if applicable.")
+            # --- PROCESS WITHDRAWAL ---
+            elif withdrawal > 0:
+                target_page, target_row = self.get_next_available_slot(member)
+                
+                last_entry_on_page = Entry.objects.filter(
+                    member=member, page=target_page
+                ).order_by('-row_number').first()
+                
+                page_bal = last_entry_on_page.current_balance if last_entry_on_page else 0
+                
+                if withdrawal > page_bal:
+                    messages.error(self.request, "Insufficient funds on this specific page!")
+                    return redirect(self.request.path)
+
+                Entry.objects.create(
+                    member=member, page=target_page, row_number=target_row,
+                    date=entry_date, withdrawal_amount=withdrawal,
+                    current_balance=page_bal - withdrawal, status='APPROVED'
+                )
+
+        messages.success(self.request, "Recorded. Page balance reset to zero.")
         return redirect('member_book', pk=member.id)
     
     def get_form(self, form_class=None):
