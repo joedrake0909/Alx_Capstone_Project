@@ -15,7 +15,7 @@ class Contribution(models.Model):
     # The cycle this payment is for. 
     # This links the payment to a specific round or payout event.
     cycle = models.ForeignKey(
-        Cycle,
+        'groups.Cycle',
         on_delete=models.CASCADE,
         related_name='contributions'
     )

@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 import string
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 def generate_next_member_id(group):
     """
@@ -38,7 +39,7 @@ class Developer(models.Model):
     def __str__(self):
         return self.name
 
-class SavingsGroup(models.Model):
+class Group(models.Model):
     """Main group model with improved structure"""
     GROUP_TYPE_CHOICES = [
         ('regular', 'Regular Savings'),
@@ -50,7 +51,9 @@ class SavingsGroup(models.Model):
         Developer, 
         on_delete=models.CASCADE,
         related_name='managed_groups',
-        help_text="The developer/partner who created this group"
+        help_text="The developer/partner who created this group",
+        null=True,
+        blank=True,
     )
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -112,8 +115,9 @@ class SavingsGroup(models.Model):
 
 class Cycle(models.Model):
     """Represents a savings cycle within a group"""
+    # FIXED: Use string reference 'Group' instead of the class name
     group = models.ForeignKey(
-        SavingsGroup,
+        'Group',  # <--- Wrap in quotes as you suggested
         on_delete=models.CASCADE,
         related_name='cycles'
     )
@@ -146,7 +150,7 @@ class Cycle(models.Model):
     end_date = models.DateField(null=True, blank=True)
     actual_end_date = models.DateField(null=True, blank=True)
     
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
@@ -199,16 +203,16 @@ class Member(models.Model):
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     
-    # Connects Member to SavingsGroup
+    # FIXED: Use string reference 'Group' instead of 'groups.Group'
     group = models.ForeignKey(
-        'groups.Group',
+        'Group',  # <--- Simplified to just 'Group'
         on_delete=models.CASCADE,
         related_name='members'
     )
     
-    # Link to the DigitalBook 
+    # FIXED: Use string reference 'DigitalBook' instead of 'groups.DigitalBook'
     digital_book = models.OneToOneField(
-        'groups.DigitalBook',
+        'DigitalBook',  # <--- Simplified to just 'DigitalBook'
         on_delete=models.PROTECT,
         null=True, 
         blank=True,
@@ -290,50 +294,7 @@ class Member(models.Model):
         # You would need to implement this based on your cycle logic
         return True
 
-class Contribution(models.Model):
-    """Records individual contributions made by members"""
-    member = models.ForeignKey(
-        Member,
-        on_delete=models.CASCADE,
-        related_name='contributions'
-    )
-    cycle = models.ForeignKey(
-        Cycle,
-        on_delete=models.CASCADE,
-        related_name='contributions'
-    )
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_method = models.CharField(
-        max_length=20,
-        choices=[
-            ('CASH', 'Cash'),
-            ('MPESA', 'M-Pesa'),
-            ('BANK', 'Bank Transfer'),
-            ('CARD', 'Card Payment'),
-            ('OTHER', 'Other'),
-        ],
-        default='CASH'
-    )
-    transaction_reference = models.CharField(max_length=100, blank=True)
-    contribution_date = models.DateTimeField(auto_now_add=True)
-    verified_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='verified_contributions'
-    )
-    notes = models.TextField(blank=True)
-    
-    class Meta:
-        ordering = ['-contribution_date']
-        indexes = [
-            models.Index(fields=['member', 'cycle']),
-            models.Index(fields=['contribution_date']),
-        ]
-    
-    def __str__(self):
-        return f"{self.member.full_name} - {self.amount} - Cycle {self.cycle.cycle_number}"
+
 
 class Payout(models.Model):
     """Records payouts made to members"""
@@ -342,11 +303,14 @@ class Payout(models.Model):
         on_delete=models.CASCADE,
         related_name='payouts'
     )
+    
+    # FIXED: Use string reference 'Cycle' instead of the class name
     cycle = models.ForeignKey(
-        Cycle,
+        'Cycle',  # <--- Wrap in quotes
         on_delete=models.CASCADE,
         related_name='payouts'
     )
+    
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payout_date = models.DateTimeField(auto_now_add=True)
     payment_method = models.CharField(

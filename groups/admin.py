@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Group, Member, Cycle
+from .models import  Member, Cycle, Group
 
 
 # Register your models here.

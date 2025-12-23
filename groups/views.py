@@ -193,31 +193,76 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
 
 
 class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
-    # ... (keep existing fields and get_form/get_initial) ...
+    model = Entry
+    fields = ['deposit_amount', 'withdrawal_amount', 'date']
+    template_name = 'groups/record_entry_form.html'
+
+    def test_func(self):
+        return is_admin(self.request.user)
 
     def form_valid(self, form):
-        member = Member.objects.get(id=self.kwargs['pk'])
-        row_num = int(self.request.GET.get('row', 1))
+        member = get_object_or_404(Member, id=self.kwargs['pk'])
         page_num = int(self.request.GET.get('page', 1))
-        page = Page.objects.get(digital_book=member.digital_book, page_number=page_num)
+        page = get_object_or_404(Page, digital_book=member.digital_book, page_number=page_num)
         
-        form.instance.member = member
-        form.instance.page = page
-        form.instance.row_number = row_num
-        form.instance.status = 'APPROVED'
-
-        # FIX: Pull the PREVIOUS balance so we don't start at 0 every time
-        last_entry = Entry.objects.filter(member=member).order_by('-date', '-row_number', '-id').first()
-        previous_balance = last_entry.current_balance if last_entry else 0
-
-        deposit = form.cleaned_data.get('deposit_amount', 0)
+        # Get the fixed rate from the group
+        fixed_rate = member.group.fixed_deposit_amount
+        total_deposit = form.cleaned_data.get('deposit_amount', 0)
         withdrawal = form.cleaned_data.get('withdrawal_amount', 0)
-        
-        # CORRECT MATH: New Balance = Previous + Deposit - Withdrawal
-        form.instance.current_balance = previous_balance + deposit - withdrawal
+        entry_date = form.cleaned_data.get('date')
 
-        messages.success(self.request, f"Entry saved! New Balance: {form.instance.current_balance}")
-        return super().form_valid(form)
+        # Get current balance
+        last_entry = Entry.objects.filter(member=member).order_by('-id').first()
+        current_bal = last_entry.current_balance if last_entry else 0
+
+        # --- CASE 1: WITHDRAWAL (One Row) ---
+        if withdrawal > 0:
+            if withdrawal > current_bal:
+                messages.error(self.request, "Insufficient balance!")
+                return redirect(self.request.path)
+            
+            # Find first empty row
+            occupied_rows = page.entries.values_list('row_number', flat=True)
+            next_row = next((i for i in range(1, 32) if i not in occupied_rows), None)
+            
+            if next_row:
+                Entry.objects.create(
+                    member=member, page=page, row_number=next_row,
+                    date=entry_date, withdrawal_amount=withdrawal,
+                    current_balance=current_bal - withdrawal, status='APPROVED'
+                )
+                messages.success(self.request, f"Withdrawal of {withdrawal} recorded.")
+            else:
+                messages.error(self.request, "This page is full!")
+
+        # --- CASE 2: DEPOSIT (Multi-Row Overflow) ---
+        elif total_deposit > 0:
+            num_rows = int(total_deposit // fixed_rate)
+            occupied_rows = list(page.entries.values_list('row_number', flat=True))
+            
+            rows_filled = 0
+            temp_balance = current_bal
+
+            for i in range(1, 32):
+                if rows_filled >= num_rows:
+                    break
+                
+                if i not in occupied_rows:
+                    temp_balance += fixed_rate
+                    Entry.objects.create(
+                        member=member, page=page, row_number=i,
+                        date=entry_date, deposit_amount=fixed_rate,
+                        current_balance=temp_balance, status='APPROVED'
+                    )
+                    rows_filled += 1
+            
+            if rows_filled < num_rows:
+                remaining = (num_rows - rows_filled) * fixed_rate
+                messages.warning(self.request, f"Filled {rows_filled} rows. {remaining} GHS couldn't fit on this page.")
+            else:
+                messages.success(self.request, f"Successfully filled {rows_filled} rows!")
+
+        return redirect(reverse_lazy('member_book', kwargs={'pk': member.id}) + f"?page={page_num}")
 
 
 # --- CUSTOMER VIEWS (For Regular Members) ---

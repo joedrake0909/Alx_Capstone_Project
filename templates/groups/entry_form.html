@@ -1,32 +1,234 @@
 {% extends "base.html" %}
+{% load static %}
+
 {% block content %}
-<div style="max-width: 500px; margin: 0 auto;">
-    <h2 style="color: #1e3a8a;">New Ledger Entry</h2>
-    <div class="card">
-        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
-            <p style="margin: 0; font-size: 0.9rem;"><strong>Member:</strong> {{ target_member.full_name }}</p>
-            <p style="margin: 5px 0 0; font-size: 0.9rem;"><strong>Location:</strong> Page {{ page_num }}, Row {{ row_num }}</p>
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h2 class="fw-bold" style="color: #1e3a8a;">New Ledger Entry</h2>
+            <p class="text-muted">Record a transaction for {{ target_member.full_name }}</p>
         </div>
 
-        <form method="post">
-            {% csrf_token %}
-            {% for field in form %}
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #475569;">{{ field.label }}</label>
-                    {{ field }}
+        <!-- Main Card -->
+        <div class="card-custom shadow-lg border-0">
+            <div class="card-body p-4">
+                <!-- Member Info Section -->
+                <div class="mb-4">
+                    <h4 class="fw-bold mb-3">Record for {{ target_member.full_name }}</h4>
+                    
+                    <!-- Group Rate Alert -->
+                    <div class="alert alert-info border-start-4 border-start-info bg-info bg-opacity-10 py-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-money-bill-wave me-3 fs-4 text-info"></i>
+                            <div>
+                                <h6 class="fw-bold mb-1">Group Rate</h6>
+                                <p class="mb-0">
+                                    <strong>{{ target_member.group.fixed_deposit_amount }} GHS</strong> per row
+                                </p>
+                                <small class="text-muted">This is the fixed amount for all contributions in {{ target_member.group.name }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Location Info -->
+                    <div class="bg-light rounded p-3 mt-3">
+                        <div class="row">
+                            <div class="col-md-6 mb-2 mb-md-0">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-user-circle me-2 text-primary"></i>
+                                    <div>
+                                        <small class="text-muted">Member ID</small>
+                                        <p class="mb-0 fw-bold">{{ target_member.member_id|default:"N/A" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                                    <div>
+                                        <small class="text-muted">Entry Location</small>
+                                        <p class="mb-0 fw-bold">Page {{ page_num }}, Row {{ row_num }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            {% endfor %}
-            
-            <div style="display: flex; gap: 10px; margin-top: 25px;">
-                <button type="submit" class="btn btn-success" style="flex: 2;">Save Row</button>
-                <a href="{% url 'member_book' target_member.id %}" class="btn" style="flex: 1; background: #e2e8f0; color: #475569; text-align: center;">Cancel</a>
+
+                <!-- Form Section -->
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    
+                    <!-- Auto-filled Fixed Amount Display -->
+                    <div class="mb-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light fw-bold border-end-0">Fixed Amount</span>
+                            <input type="text" 
+                                   class="form-control border-start-0 bg-light" 
+                                   value="{{ target_member.group.fixed_deposit_amount }} GHS" 
+                                   readonly
+                                   style="font-weight: 600;">
+                            <span class="input-group-text bg-success text-white">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            <i class="fas fa-info-circle me-1"></i>
+                            This amount is fixed for all transactions in this group
+                        </small>
+                    </div>
+
+                    <!-- Form Fields -->
+                    {% for field in form %}
+                    <div class="mb-4">
+                        <label class="form-label fw-bold" for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                            {% if field.field.required %}
+                            <span class="text-danger">*</span>
+                            {% endif %}
+                        </label>
+                        
+                        {% if field.name == 'amount' %}
+                        <!-- Special handling for amount field -->
+                        <div class="input-group">
+                            <span class="input-group-text bg-light fw-bold">GHS</span>
+                            {{ field }}
+                        </div>
+                        {% else %}
+                        <!-- Regular field -->
+                        {{ field }}
+                        {% endif %}
+                        
+                        {% if field.help_text %}
+                        <small class="form-text text-muted">{{ field.help_text }}</small>
+                        {% endif %}
+                        
+                        {% if field.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ field.errors|join:", " }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <!-- Button Group -->
+                    <div class="d-flex gap-3 mt-4 pt-3 border-top">
+                        <button type="submit" class="btn btn-primary btn-lg flex-fill py-3">
+                            <i class="fas fa-save me-2"></i>
+                            Save Transaction
+                        </button>
+                        <a href="{% url 'member_book' target_member.id %}" 
+                           class="btn btn-outline-secondary btn-lg flex-fill py-3">
+                            <i class="fas fa-times me-2"></i>
+                            Cancel
+                        </a>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
+
+        <!-- Quick Tips -->
+        <div class="mt-4">
+            <div class="card border-0 bg-light">
+                <div class="card-body p-3">
+                    <h6 class="fw-bold mb-2">
+                        <i class="fas fa-lightbulb me-2 text-warning"></i>
+                        Quick Tips
+                    </h6>
+                    <ul class="mb-0 small text-muted">
+                        <li>All contributions in this group use the same fixed amount</li>
+                        <li>Double-check the member name and entry location before saving</li>
+                        <li>You can add additional notes for special circumstances</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 <style>
-    input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
-    input:focus { border-color: #1e3a8a; outline: none; box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1); }
+    .card-custom {
+        border-radius: 16px;
+        overflow: hidden;
+        background: white;
+    }
+    
+    .form-control, .form-select {
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 12px 16px;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #1e3a8a;
+        box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.1);
+    }
+    
+    .input-group-text {
+        background-color: #f8fafc;
+        color: #475569;
+        font-weight: 600;
+        border: 2px solid #e2e8f0;
+    }
+    
+    .border-start-4 {
+        border-left-width: 4px !important;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #1e40af, #2563eb);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);
+    }
+    
+    .btn-outline-secondary {
+        border-radius: 12px;
+        font-weight: 600;
+    }
 </style>
+
+<script>
+    // Auto-fill amount field with group fixed amount
+    document.addEventListener('DOMContentLoaded', function() {
+        const amountField = document.querySelector('input[name="amount"]');
+        const fixedAmount = "{{ target_member.group.fixed_deposit_amount }}";
+        
+        if (amountField && !amountField.value) {
+            amountField.value = fixedAmount;
+        }
+        
+        // Add event listener to prevent changing amount
+        if (amountField) {
+            amountField.addEventListener('input', function(e) {
+                if (this.value !== fixedAmount) {
+                    // Show warning but allow override
+                    if (!this.nextElementSibling || !this.nextElementSibling.classList.contains('warning-message')) {
+                        const warning = document.createElement('div');
+                        warning.className = 'warning-message text-warning small mt-1';
+                        warning.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>This differs from the group fixed amount';
+                        this.parentNode.appendChild(warning);
+                    }
+                } else {
+                    // Remove warning if amount matches
+                    const warning = this.parentNode.querySelector('.warning-message');
+                    if (warning) {
+                        warning.remove();
+                    }
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}
