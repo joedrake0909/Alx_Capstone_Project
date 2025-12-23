@@ -201,14 +201,14 @@ class Member(models.Model):
     
     # Connects Member to SavingsGroup
     group = models.ForeignKey(
-        SavingsGroup,
+        'groups.Group',
         on_delete=models.CASCADE,
         related_name='members'
     )
     
     # Link to the DigitalBook 
     digital_book = models.OneToOneField(
-        DigitalBook,
+        'groups.DigitalBook',
         on_delete=models.PROTECT,
         null=True, 
         blank=True,

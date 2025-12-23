@@ -1,13 +1,13 @@
 from django.db import models, transaction
 # Import models from the 'groups' app to establish the ForeignKey links
-from groups.models import Member, Cycle, Group 
+from django.db import models 
 from decimal import Decimal
 
 class Contribution(models.Model):
     # The member who made the payment. 
     # This ForeignKey links a contribution record to a specific Member profile.
     member = models.ForeignKey(
-        Member,
+        'groups.Member',
         on_delete=models.CASCADE,
         related_name='contributions'
     )
@@ -22,7 +22,7 @@ class Contribution(models.Model):
     
     #Denormalized group field speeds up group-based queries despite redundancy.
     group = models.ForeignKey(
-        Group,
+        'groups.Group',
         on_delete=models.CASCADE,
         related_name='all_contributions'
     )
@@ -81,7 +81,7 @@ class Page(models.Model):
 
 class Entry(models.Model):
     page = models.ForeignKey(
-        Page,
+        'contributions.Page',
         on_delete=models.CASCADE,
         related_name='entries'
     )
