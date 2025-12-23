@@ -313,7 +313,7 @@ def landing_page(request):
 
 class GroupCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = Group
-    fields = ['name'] # You only need to provide the name (e.g., "Makata Market Women")
+    fields = ['name', 'fixed_deposit_amount'] 
     template_name = 'groups/group_form.html'
     success_url = reverse_lazy('super_dashboard')
 

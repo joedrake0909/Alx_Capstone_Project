@@ -1,26 +1,192 @@
 {% extends "base.html" %}
+{% load static %}
+
 {% block content %}
 <div class="row justify-content-center align-items-center" style="min-height: 70vh;">
-    <div class="col-md-5">
-        <div class="card-custom shadow-lg p-5 border-0 bg-white text-center">
-            <div class="bg-info bg-opacity-10 text-info rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                <span class="fs-3">🏢</span>
+    <div class="col-md-6">
+        <div class="card-custom shadow-lg p-5 border-0 bg-white">
+            <!-- Header with Icon -->
+            <div class="text-center mb-4">
+                <div class="bg-info bg-opacity-10 text-info rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                     style="width: 60px; height: 60px;">
+                    <span class="fs-3">🏢</span>
+                </div>
+                <h3 class="fw-bold text-dark mb-1">Launch New Group</h3>
+                <p class="text-muted small">Create a savings group with fixed deposit amount</p>
             </div>
-            <h3 class="fw-bold text-dark mb-4">Launch New Group</h3>
-            
+
+            <!-- Form -->
             <form method="post">
                 {% csrf_token %}
+                
+                <!-- Group Name Field -->
                 <div class="mb-4 text-start">
                     <label class="form-label fw-bold small">Group Name</label>
-                    <input type="text" name="name" class="form-control form-control-lg border-2" 
-                           placeholder="e.g. Greater Accra Savings Union" style="border-radius: 10px;">
+                    <input type="text" 
+                           name="name" 
+                           class="form-control form-control-lg border-2" 
+                           placeholder="e.g. Makola Market Women" 
+                           style="border-radius: 10px;"
+                           required>
+                    <div class="form-text">Give your group a descriptive name</div>
                 </div>
                 
-                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold" style="border-radius: 12px;">
+                <!-- Group Type Field -->
+                <div class="mb-4 text-start">
+                    <label class="form-label fw-bold small">Group Type</label>
+                    <select name="group_type" 
+                            class="form-select form-select-lg border-2" 
+                            style="border-radius: 10px;"
+                            required>
+                        <option value="rotating" selected>Rotating Fund (Susu)</option>
+                        <option value="regular">Regular Savings</option>
+                        <option value="investment">Investment Group</option>
+                    </select>
+                    <div class="form-text">Select how your group will operate</div>
+                </div>
+                
+                <!-- Fixed Deposit Amount Field -->
+                <div class="mb-4 text-start">
+                    <label class="form-label fw-bold small">Fixed Daily/Weekly Deposit Amount</label>
+                    <div class="input-group" style="border-radius: 10px; overflow: hidden;">
+                        <span class="input-group-text bg-light fw-bold border-2 border-end-0">GHS</span>
+                        <input type="number" 
+                               name="fixed_deposit_amount" 
+                               class="form-control form-control-lg border-2 border-start-0" 
+                               value="10.00" 
+                               step="0.01" 
+                               min="0.01"
+                               required>
+                    </div>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Every contribution recorded will automatically use this amount
+                    </div>
+                </div>
+                
+                <!-- Group Description (Optional) -->
+                <div class="mb-4 text-start">
+                    <label class="form-label fw-bold small">Description (Optional)</label>
+                    <textarea name="description" 
+                              class="form-control border-2" 
+                              rows="2" 
+                              style="border-radius: 10px;"
+                              placeholder="Brief description of the group's purpose or rules"></textarea>
+                </div>
+                
+                <!-- Additional Options (Collapsible) -->
+                <div class="mb-4">
+                    <button class="btn btn-outline-secondary w-100 text-start" 
+                            type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#advancedOptions"
+                            aria-expanded="false">
+                        <i class="fas fa-cog me-2"></i>
+                        Advanced Options
+                        <i class="fas fa-chevron-down float-end mt-1"></i>
+                    </button>
+                    
+                    <div class="collapse mt-3" id="advancedOptions">
+                        <div class="card card-body border-2" style="border-radius: 10px;">
+                            <!-- Max Members -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small">Maximum Members</label>
+                                <input type="number" 
+                                       name="max_members" 
+                                       class="form-control" 
+                                       value="50" 
+                                       min="2" 
+                                       max="9999">
+                                <div class="form-text">Maximum number of members allowed (2-9999)</div>
+                            </div>
+                            
+                            <!-- Cycle Duration -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small">Cycle Duration (Days)</label>
+                                <input type="number" 
+                                       name="cycle_duration_days" 
+                                       class="form-control" 
+                                       value="30" 
+                                       min="7" 
+                                       max="365">
+                                <div class="form-text">How long each savings cycle lasts</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Messages -->
+                {% if messages %}
+                <div class="mb-4">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Submit Button -->
+                <button type="submit" 
+                        class="btn btn-primary w-100 py-3 fw-bold" 
+                        style="border-radius: 12px;">
+                    <i class="fas fa-rocket me-2"></i>
                     Initialize Group
                 </button>
+                
+                <!-- Help Text -->
+                <div class="mt-3 text-center">
+                    <small class="text-muted">
+                        <i class="fas fa-lightbulb me-1"></i>
+                        You can adjust these settings later from the group dashboard
+                    </small>
+                </div>
             </form>
         </div>
     </div>
 </div>
+
+<!-- Font Awesome for Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    .form-control-lg:focus, .form-select-lg:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    .input-group-text {
+        background-color: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+    }
+    .card-custom {
+        border-radius: 20px;
+    }
+    .btn-outline-secondary:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+
+<script>
+    // Format currency input
+    document.querySelector('input[name="fixed_deposit_amount"]').addEventListener('change', function(e) {
+        let value = parseFloat(e.target.value);
+        if (value < 0.01) {
+            e.target.value = '0.01';
+        }
+    });
+    
+    // Show/hide advanced options with animation
+    document.querySelector('[data-bs-target="#advancedOptions"]').addEventListener('click', function(e) {
+        const icon = this.querySelector('.fa-chevron-down');
+        if (icon.classList.contains('fa-chevron-down')) {
+            icon.classList.remove('fa-chevron-down');
+            icon.classList.add('fa-chevron-up');
+        } else {
+            icon.classList.remove('fa-chevron-up');
+            icon.classList.add('fa-chevron-down');
+        }
+    });
+</script>
 {% endblock %}
