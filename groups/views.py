@@ -195,10 +195,21 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
 class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = Entry
     fields = ['deposit_amount', 'withdrawal_amount', 'date']
-    template_name = 'groups/record_entry_form.html'
+    # 1. Point to your existing file name (updated from your template)
+    template_name = 'groups/record_entry_form.html' 
 
     def test_func(self):
         return is_admin(self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        member = get_object_or_404(Member, id=self.kwargs['pk'])
+        
+        # 2. Match the variable names used in your HTML
+        context['target_member'] = member
+        context['page_num'] = self.request.GET.get('page', 1)
+        context['row_num'] = self.request.GET.get('row', 1)
+        return context
 
     def form_valid(self, form):
         member = get_object_or_404(Member, id=self.kwargs['pk'])
@@ -237,12 +248,15 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         # --- CASE 2: DEPOSIT (Multi-Row Overflow) ---
         elif total_deposit > 0:
+            # Calculate how many full rows this deposit represents
             num_rows = int(total_deposit // fixed_rate)
+            remainder = total_deposit % fixed_rate
             occupied_rows = list(page.entries.values_list('row_number', flat=True))
             
             rows_filled = 0
             temp_balance = current_bal
 
+            # First, fill available rows with fixed rate
             for i in range(1, 32):
                 if rows_filled >= num_rows:
                     break
@@ -256,13 +270,75 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                     )
                     rows_filled += 1
             
+            # Check for remainder (partial deposit)
+            if remainder > 0:
+                # Find next available row for remainder
+                for i in range(1, 32):
+                    if i not in occupied_rows and i not in [entry.row_number for entry in page.entries.all()]:
+                        temp_balance += remainder
+                        Entry.objects.create(
+                            member=member, page=page, row_number=i,
+                            date=entry_date, deposit_amount=remainder,
+                            current_balance=temp_balance, status='APPROVED'
+                        )
+                        rows_filled += 1
+                        messages.info(self.request, f"Recorded partial deposit of {remainder} GHS")
+                        break
+            
+            # Provide feedback
             if rows_filled < num_rows:
-                remaining = (num_rows - rows_filled) * fixed_rate
-                messages.warning(self.request, f"Filled {rows_filled} rows. {remaining} GHS couldn't fit on this page.")
+                remaining_full_rows = num_rows - rows_filled
+                remaining_amount = remaining_full_rows * fixed_rate
+                messages.warning(
+                    self.request, 
+                    f"Filled {rows_filled} rows. "
+                    f"{remaining_amount} GHS couldn't fit on this page. "
+                    f"Please continue on next page."
+                )
             else:
-                messages.success(self.request, f"Successfully filled {rows_filled} rows!")
+                if remainder > 0:
+                    messages.success(
+                        self.request, 
+                        f"Successfully filled {rows_filled} rows "
+                        f"({num_rows} full rows + {remainder} GHS partial deposit)!"
+                    )
+                else:
+                    messages.success(
+                        self.request, 
+                        f"Successfully filled {rows_filled} rows!"
+                    )
+        
+        # --- CASE 3: NO DEPOSIT OR WITHDRAWAL ---
+        else:
+            messages.error(self.request, "Please enter either a deposit or withdrawal amount.")
 
         return redirect(reverse_lazy('member_book', kwargs={'pk': member.id}) + f"?page={page_num}")
+    
+    def get_form(self, form_class=None):
+        """Customize form initialization"""
+        form = super().get_form(form_class)
+        
+        # Set initial values if needed
+        member = get_object_or_404(Member, id=self.kwargs['pk'])
+        page_num = self.request.GET.get('page', 1)
+        row_num = self.request.GET.get('row', 1)
+        
+        # Pre-fill date with today
+        from django.utils import timezone
+        form.fields['date'].initial = timezone.now().date()
+        
+        # Optionally pre-fill deposit amount with group fixed rate
+        if 'deposit_amount' in form.fields:
+            form.fields['deposit_amount'].initial = member.group.fixed_deposit_amount
+        
+        return form
+    
+    def get_success_url(self):
+        """Define the success URL"""
+        member = get_object_or_404(Member, id=self.kwargs['pk'])
+        page_num = self.request.GET.get('page', 1)
+        return reverse_lazy('member_book', kwargs={'pk': member.id}) + f"?page={page_num}"
+
 
 
 # --- CUSTOMER VIEWS (For Regular Members) ---
