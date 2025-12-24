@@ -30,7 +30,13 @@
                     </div>
                 </td>
                 <td class="text-muted small">#{{ group.admin.id }}</td>
-                <td class="fw-semibold text-dark">{{ group.admin.username }}</td>
+                <td>
+                    {% if group.developer and group.developer.user %}
+                        <span class="fw-bold text-dark">{{ group.developer.user.username }}</span>
+                    {% else %}
+                        <span class="text-muted italic">No Admin Assigned</span>
+                    {% endif %}
+                </td>
                 <td>
                     <span class="badge bg-info text-dark bg-opacity-10 px-3 py-2 border border-info border-opacity-25">
                         {{ group.name }}
@@ -46,7 +52,7 @@
                         {% endif %}
                     </div>
                 </td>
-                <td class="text-muted small">{{ group.admin.date_joined|date:"d M, Y" }}</td>
+                <td class="text-muted small">{{ group.created_at|date:"M d, Y" }}</td>
             </tr>
             {% empty %}
             <tr>

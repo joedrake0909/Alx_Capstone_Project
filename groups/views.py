@@ -53,6 +53,10 @@ class AdminUserListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     def test_func(self):
         return self.request.user.is_superuser
     
+    def get_queryset(self):
+        # 🌟 USE select_related to grab the Developer and User in ONE database hit
+        return Group.objects.select_related('developer__user').all().order_by('-created_at')
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Add any additional context if needed
@@ -151,24 +155,39 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        page_num = self.request.GET.get('page', 1)
+        member = self.object
+        page_num = int(self.request.GET.get('page', 1))
         
-        try:
-            # Get the current book from the member
-            book = self.object.current_book
-            page = Page.objects.get(digital_book=book, page_number=page_num)
-            existing_entries = page.entries.all()
+        # Ensure the member has an active book
+        book = member.current_book
+        if not book:
+            # Fallback: find any book belonging to them
+            book = DigitalBook.objects.filter(member=member).first()
+            if book:
+                member.current_book = book
+                member.save(update_fields=['current_book'])
+
+        if book:
+            # Get or create the specific page for this book
+            page, _ = Page.objects.get_or_create(digital_book=book, page_number=page_num)
             
-            # Create the 31-row structure
+            # Fetch entries and turn them into a dictionary for row-lookup
+            # This is much faster and more reliable than multiple .filter() calls in a loop
+            entries_dict = {e.row_number: e for e in page.entries.all()}
+            
             rows = []
             for i in range(1, 32):
-                entry = existing_entries.filter(row_number=i).first()
-                rows.append({'number': i, 'data': entry})
+                rows.append({
+                    'number': i, 
+                    'data': entries_dict.get(i)  # Finds the entry for this row if it exists
+                })
             
             context['rows'] = rows
             context['current_page'] = page
-        except (Page.DoesNotExist, AttributeError):
-            context['error'] = "Book pages missing."
+            context['book'] = book
+        else:
+            context['error'] = "No digital book found for this member."
+            
         return context
 
 
@@ -182,54 +201,55 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # 🌟 This line is the fix: It finds the member and names it 'target_member'
-        # so that the HTML line {% url 'member_book' target_member.id %} works.
         member = get_object_or_404(Member, id=self.kwargs['pk'])
         context['target_member'] = member
-        
-        # Also pass page/row info if your template uses them
         context['page_num'] = self.request.GET.get('page', 1)
-        context['row_num'] = self.request.GET.get('row', 1)
         return context
 
     def get_next_available_slot(self, target_member):
-        """Finds the first empty row. If page is full, goes to next page. If book is full, creates new book."""
-        # Start with the current book
-        book = target_member.current_book
-        
-        # If no current book exists, create one (should not happen with your save() logic)
-        if not book:
-            # The book will be created through the Member model's save() method
-            # But we need to trigger it
-            target_member.save()  # This will create the book
+        """Find the first empty row in the current or specified book."""
+        # Check if a specific book was requested via URL
+        requested_book_id = self.request.GET.get('book')
+        if requested_book_id:
+            book = DigitalBook.objects.filter(id=requested_book_id, member=target_member).first()
+        else:
             book = target_member.current_book
+
+        if not book:
+            # Final fallback: Get their most recent book
+            book = DigitalBook.objects.filter(member=target_member).order_by('-book_number').first()
         
-        # Scan through the 20 pages of the current book
+        # If still no book, create one
+        if not book:
+            book = DigitalBook.objects.create(member=target_member, book_number=1)
+            # Create pages for the new book
+            for i in range(1, 21):
+                Page.objects.create(digital_book=book, page_number=i)
+            target_member.current_book = book
+            target_member.save(update_fields=['current_book'])
+
+        # Check pages in order
         for p_num in range(1, 21):
             page, _ = Page.objects.get_or_create(digital_book=book, page_number=p_num)
-            occupied = page.entries.values_list('row_number', flat=True)
+            occupied_rows = page.entries.values_list('row_number', flat=True)
             for r_num in range(1, 32):
-                if r_num not in occupied:
+                if r_num not in occupied_rows:
                     return page, r_num
         
-        # IF ENTIRE BOOK IS FULL -> CREATE BOOK #2, #3, etc.
-        # Find the highest book number for this member
-        last_book = DigitalBook.objects.filter(member=target_member).order_by('-book_number').first()
-        new_book_num = (last_book.book_number + 1) if last_book else 2
+        # If all pages are full, create a new book
+        last_book_num = DigitalBook.objects.filter(member=target_member).aggregate(
+            max_book=models.Max('book_number')
+        )['max_book'] or 0
         
-        # Create new book WITH the member parameter
-        new_book = DigitalBook.objects.create(
-            member=target_member,  # ✅ This is the critical fix
-            book_number=new_book_num
-        )
+        new_book_num = last_book_num + 1
+        new_book = DigitalBook.objects.create(member=target_member, book_number=new_book_num)
         
         # Create pages for the new book
-        pages = [Page(digital_book=new_book, page_number=i) for i in range(1, 21)]
-        Page.objects.bulk_create(pages)
+        for i in range(1, 21):
+            Page.objects.create(digital_book=new_book, page_number=i)
         
-        # Update the member to point to the latest book
         target_member.current_book = new_book
-        target_member.save()
+        target_member.save(update_fields=['current_book'])
         
         # Return first row of first page in new book
         first_page = Page.objects.get(digital_book=new_book, page_number=1)
@@ -238,59 +258,40 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     def form_valid(self, form):
         member = get_object_or_404(Member, id=self.kwargs['pk'])
         fixed_rate = member.group.fixed_deposit_amount
-        total_deposit = form.cleaned_data.get('deposit_amount', 0)
+        
+        deposit = form.cleaned_data.get('deposit_amount', 0)
         withdrawal = form.cleaned_data.get('withdrawal_amount', 0)
         entry_date = form.cleaned_data.get('date')
 
         with transaction.atomic():
-            if total_deposit > 0:
-                num_rows = int(total_deposit // fixed_rate)
+            if deposit and deposit > 0:
+                # Math: How many rows does this deposit cover?
+                num_rows = max(1, int(deposit // fixed_rate))
+                
                 for _ in range(num_rows):
                     target_page, target_row = self.get_next_available_slot(member)
-                    
-                    # Create the entry - current_balance will be calculated automatically
-                    # by the Entry model's save() method
+                    if target_page:
+                        Entry.objects.create(
+                            member=member,
+                            page=target_page,
+                            row_number=target_row,
+                            date=entry_date,
+                            deposit_amount=fixed_rate if num_rows > 1 else deposit,
+                            status='APPROVED'
+                        )
+            elif withdrawal and withdrawal > 0:
+                target_page, target_row = self.get_next_available_slot(member)
+                if target_page:
                     Entry.objects.create(
-                        member=member, 
-                        page=target_page, 
+                        member=member,
+                        page=target_page,
                         row_number=target_row,
-                        date=entry_date, 
-                        deposit_amount=fixed_rate,
+                        date=entry_date,
+                        withdrawal_amount=withdrawal,
                         status='APPROVED'
                     )
-                    
-                    # Update member's total contributions
-                    member.total_contributions += fixed_rate
-                    member.last_contribution_date = entry_date
 
-            elif withdrawal > 0:
-                target_page, target_row = self.get_next_available_slot(member)
-                
-                # Check page balance before withdrawal
-                last_entry = Entry.objects.filter(member=member, page=target_page).order_by('-row_number').first()
-                page_bal = last_entry.current_balance if last_entry else 0
-                
-                if withdrawal > page_bal:
-                    messages.error(self.request, "Insufficient funds on this specific page!")
-                    return redirect(self.request.path)
-                
-                # Create the entry
-                Entry.objects.create(
-                    member=member, 
-                    page=target_page, 
-                    row_number=target_row,
-                    date=entry_date, 
-                    withdrawal_amount=withdrawal,
-                    status='APPROVED'
-                )
-                
-                # Update member's total payouts
-                member.total_payouts += withdrawal
-            
-            # Save member updates
-            member.save()
-
-        messages.success(self.request, "Transaction(s) recorded successfully.")
+        messages.success(self.request, "Transaction successfully added to ledger.")
         return redirect('member_book', pk=member.id)
 
 
@@ -319,33 +320,43 @@ class CustomerBookView(LoginRequiredMixin, DetailView):
         if self.object is None:
             return context
             
-        page_num = self.request.GET.get('page', 1)
+        page_num = int(self.request.GET.get('page', 1))
         
         try:
             book = self.object.current_book
-            page = Page.objects.get(digital_book=book, page_number=page_num)
-            existing_entries = page.entries.all()
+            if not book:
+                # Fallback: find any book belonging to them
+                book = DigitalBook.objects.filter(member=self.object).first()
+                if book:
+                    self.object.current_book = book
+                    self.object.save(update_fields=['current_book'])
             
-            # Create the 31-row structure (similar to MemberBookView)
-            rows = []
-            for i in range(1, 32):
-                entry = existing_entries.filter(row_number=i).first()
-                rows.append({'number': i, 'data': entry})
-            
-            context['rows'] = rows
-            context['current_page'] = page
-            
-            # Calculate total balance for this member
-            total_deposits = Entry.objects.filter(member=self.object).aggregate(
-                total=Sum('deposit_amount')
-            )['total'] or 0
-            total_withdrawals = Entry.objects.filter(member=self.object).aggregate(
-                total=Sum('withdrawal_amount')
-            )['total'] or 0
-            context['member_balance'] = total_deposits - total_withdrawals
-            
-        except (Page.DoesNotExist, AttributeError):
-            context['error'] = "Book pages not found."
+            if book:
+                page, _ = Page.objects.get_or_create(digital_book=book, page_number=page_num)
+                
+                # Create the 31-row structure
+                entries_dict = {e.row_number: e for e in page.entries.all()}
+                rows = []
+                for i in range(1, 32):
+                    rows.append({'number': i, 'data': entries_dict.get(i)})
+                
+                context['rows'] = rows
+                context['current_page'] = page
+                context['book'] = book
+                
+                # Calculate total balance for this member
+                total_deposits = Entry.objects.filter(member=self.object).aggregate(
+                    total=Sum('deposit_amount')
+                )['total'] or 0
+                total_withdrawals = Entry.objects.filter(member=self.object).aggregate(
+                    total=Sum('withdrawal_amount')
+                )['total'] or 0
+                context['member_balance'] = total_deposits - total_withdrawals
+            else:
+                context['error'] = "No digital book found."
+                
+        except Exception as e:
+            context['error'] = f"Error loading book: {str(e)}"
         
         return context
 
@@ -368,7 +379,7 @@ def login_success(request):
 
 class MemberProfileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Member
-    fields = ['phone_number'] # Strictly restrict to phone only
+    fields = ['phone_number']  # Strictly restrict to phone only
     template_name = 'groups/profile_settings.html'
     
     def test_func(self):
