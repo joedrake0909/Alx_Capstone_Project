@@ -1,8 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
+<!-- Action Bar -->
+<div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+    <div>
+        <h4 class="fw-bold mb-0">{{ member.full_name }}'s Ledger</h4>
+        <small class="text-muted">ID: {{ member.member_id }} | Group Rate: {{ member.group.fixed_deposit_amount }} GHS</small>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <a href="{% url 'record_entry' member.id %}?page={{ current_page.page_number }}" 
+           class="btn btn-primary btn-lg px-4 shadow-sm">
+            <i class="fas fa-plus-circle me-2"></i> New Transaction
+        </a>
+    </div>
+</div>
+
 <div style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
     <div>
-        <h2 style="margin:0; color: #1e3a8a;">{{ member.full_name }}'s Digital Book</h2>
         <p style="color: #64748b; margin: 5px 0 0;">Book #{{ member.digital_book.book_number }} | Page {{ current_page.page_number }}</p>
     </div>
     <div style="display: flex; gap: 8px;">
@@ -20,7 +34,7 @@
                 <th style="padding: 12px; text-align: left;">Deposit</th>
                 <th style="padding: 12px; text-align: left;">Withdrawal</th>
                 <th style="padding: 12px; text-align: left;">Balance</th>
-                <th style="padding: 12px; text-align: right; padding-right: 20px;">Action</th>
+                <th style="padding: 12px; text-align: right; padding-right: 20px;">Status</th>
             </tr>
         </thead>
         <tbody>
@@ -29,19 +43,24 @@
                 <td style="text-align: center; border-right: 1px solid #e2e8f0; background: #fcfcfc; font-weight: 600; color: #64748b;">{{ row.number }}</td>
                 {% if row.data %}
                     <td style="padding-left: 12px;">{{ row.data.date|date:"d/m/Y" }}</td>
-                    <td style="padding-left: 12px; color: #16a34a; font-weight: 600;">+{{ row.data.deposit_amount }}</td>
-                    <td style="padding-left: 12px; color: #dc2626;">-{{ row.data.withdrawal_amount }}</td>
+                    <td style="padding-left: 12px; color: #16a34a; font-weight: 600;">
+                        {% if row.data.deposit_amount > 0 %}+{{ row.data.deposit_amount }}{% else %}0.00{% endif %}
+                    </td>
+                    <td style="padding-left: 12px; color: #dc2626;">
+                        {% if row.data.withdrawal_amount > 0 %}-{{ row.data.withdrawal_amount }}{% else %}0.00{% endif %}
+                    </td>
                     <td style="padding-left: 12px; font-weight: 700;">{{ row.data.current_balance }}</td>
-                    <td style="text-align: right; padding-right: 20px;"><span style="background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">APPROVED</span></td>
+                    <td style="text-align: right; padding-right: 20px;">
+                        <span style="background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">
+                            {{ row.data.status }}
+                        </span>
+                    </td>
                 {% else %}
                     <td style="padding-left: 12px; color: #cbd5e1;">--/--/--</td>
                     <td style="padding-left: 12px; color: #cbd5e1;">0.00</td>
                     <td style="padding-left: 12px; color: #cbd5e1;">0.00</td>
                     <td style="padding-left: 12px; color: #cbd5e1;">0.00</td>
-                    <td style="text-align: right; padding-right: 20px;">
-                        <a href="{% url 'record_entry' member.id %}?row={{ row.number }}&page={{ current_page.page_number }}" 
-                           style="color: #2563eb; text-decoration: none; font-weight: 600; font-size: 0.8rem;">+ RECORD</a>
-                    </td>
+                    <td style="text-align: right; padding-right: 20px; color: #cbd5e1;">EMPTY</td>
                 {% endif %}
             </tr>
             {% endfor %}

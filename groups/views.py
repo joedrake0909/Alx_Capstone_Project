@@ -180,6 +180,18 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     def test_func(self):
         return is_admin(self.request.user)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # 🌟 This line is the fix: It finds the member and names it 'target_member'
+        # so that the HTML line {% url 'member_book' target_member.id %} works.
+        member = get_object_or_404(Member, id=self.kwargs['pk'])
+        context['target_member'] = member
+        
+        # Also pass page/row info if your template uses them
+        context['page_num'] = self.request.GET.get('page', 1)
+        context['row_num'] = self.request.GET.get('row', 1)
+        return context
+
     def get_next_available_slot(self, target_member):
         """Finds the first empty row. If page is full, goes to next page. If book is full, creates new book."""
         # Start with the current book
