@@ -5,13 +5,14 @@ from django.urls import reverse_lazy
 from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.models import User
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.views.generic.edit import UpdateView
 import string
+from django.db import transaction
+from django.utils import timezone
 
 # Import your models
-from .models import Member, Cycle, Group, DigitalBook
-from contributions.models import Entry, Page
+from .models import Member, Cycle, Group, DigitalBook, Page, Entry
 
 # --- HELPERS ---
 
@@ -75,7 +76,6 @@ class AllTransactionsView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 # --- REGULAR ADMIN VIEWS (For Group Treasurers) ---
 
 class MemberListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
-    """Admin Directory: List all members."""
     login_url = '/login/'
     template_name = 'groups/member_list.html'
     model = Member
@@ -85,17 +85,26 @@ class MemberListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         return is_admin(self.request.user)
     
     def get_queryset(self):
-        # FIX: Instead of getting one group (which crashes if you have 4),
-        # we show ALL members since you are the Superadmin.
+        # 1. Start by filtering members belonging to this Admin's group
         if self.request.user.is_superuser:
-            return Member.objects.select_related('group').all().order_by('-id')
-        
-        # Keep original logic for regular admins (if any)
-        try:
-            admin_group = Group.objects.get(admin=self.request.user)
-            return Member.objects.filter(group=admin_group).order_by('joined_at')
-        except (Group.DoesNotExist, Group.MultipleObjectsReturned):
-            return Member.objects.none()
+            queryset = Member.objects.all()
+        else:
+            try:
+                admin_group = Group.objects.get(admin=self.request.user)
+                queryset = Member.objects.filter(group=admin_group)
+            except Group.DoesNotExist:
+                return Member.objects.none()
+
+        # 2. Then apply the search filter if one exists
+        query = self.request.GET.get('q')
+        if query:
+            queryset = queryset.filter(
+                Q(full_name__icontains=query) | 
+                Q(member_id__icontains=query) |
+                Q(phone_number__icontains=query)
+            )
+            
+        return queryset.order_by('joined_at')
 
 
 class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
@@ -109,56 +118,25 @@ class MemberCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     def test_func(self):
         return is_admin(self.request.user)
 
-    # 🌟 INTERNAL LOGIC FOR ID GENERATION
-    def get_next_member_id(self, group):
-        """Generates 0001-9999 then A001-Z999 based on group count."""
-        count = Member.objects.filter(group=group).count() + 1
-        
-        if count <= 9999:
-            return f"{count:04d}"
-        
-        overflow = count - 9999
-        letter_idx = (overflow - 1) // 999
-        num_part = (overflow - 1) % 999 + 1
-        
-        if letter_idx < len(string.ascii_uppercase):
-            prefix = string.ascii_uppercase[letter_idx]
-            return f"{prefix}{num_part:03d}"
-        return f"EXT{count}"
-
     def form_valid(self, form):
-        selected_group = form.cleaned_data['group']
-        
-        # 🌟 CALL THE INTERNAL METHOD
-        new_member_id = self.get_next_member_id(selected_group)
-        
-        # --- Generate User ---
+        # 1. Create the User Account
         base_name = form.cleaned_data['full_name'].replace(" ", "").lower()
         username = base_name
         counter = 1
         while User.objects.filter(username=username).exists():
             username = f"{base_name}{counter}"
             counter += 1
-        
         new_user = User.objects.create_user(username=username, password='password123')
 
-        # --- Create Book ---
-        new_book = DigitalBook.objects.create(book_number=1)
-
-        # --- Create Pages ---
-        pages = [Page(digital_book=new_book, page_number=i) for i in range(1, 21)]
-        Page.objects.bulk_create(pages)
-
-        # --- Save Member ---
+        # 2. Save Member 
         member = form.save(commit=False)
         member.user = new_user
-        member.group = selected_group
-        member.member_id = new_member_id # 🌟 SET THE NEW ID
-        member.digital_book = new_book
+        # We explicitly set this just in case auto_now_add is being stubborn
+        member.joined_at = timezone.now() 
         member.status = 'ACTIVE'
-        member.save()
+        member.save() 
 
-        messages.success(self.request, f"Registered {member.full_name}! ID: {new_member_id}")
+        messages.success(self.request, f"Successfully registered {member.full_name}!")
         return redirect(self.success_url)
 
 
@@ -168,8 +146,6 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     template_name = 'groups/book_view.html'
     context_object_name = 'member'
 
-    
-
     def test_func(self):
         return is_admin(self.request.user)
 
@@ -178,7 +154,9 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         page_num = self.request.GET.get('page', 1)
         
         try:
-            page = Page.objects.get(digital_book=self.object.digital_book, page_number=page_num)
+            # Get the current book from the member
+            book = self.object.current_book
+            page = Page.objects.get(digital_book=book, page_number=page_num)
             existing_entries = page.entries.all()
             
             # Create the 31-row structure
@@ -189,22 +167,10 @@ class MemberBookView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
             
             context['rows'] = rows
             context['current_page'] = page
-        except Page.DoesNotExist:
+        except (Page.DoesNotExist, AttributeError):
             context['error'] = "Book pages missing."
         return context
-    
-    
 
-
-from django.db import transaction
-from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
-from django.contrib import messages
-from django.views.generic.edit import CreateView
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from groups.models import Entry, Member, Page, DigitalBook
-from groups.utils import is_admin
-from django.utils import timezone
 
 class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = Entry
@@ -214,28 +180,48 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     def test_func(self):
         return is_admin(self.request.user)
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        member = get_object_or_404(Member, id=self.kwargs['pk'])
+    def get_next_available_slot(self, target_member):
+        """Finds the first empty row. If page is full, goes to next page. If book is full, creates new book."""
+        # Start with the current book
+        book = target_member.current_book
         
-        # Get current page from URL or default to 1
-        page_num = self.request.GET.get('page', 1)
+        # If no current book exists, create one (should not happen with your save() logic)
+        if not book:
+            # The book will be created through the Member model's save() method
+            # But we need to trigger it
+            target_member.save()  # This will create the book
+            book = target_member.current_book
         
-        context['target_member'] = member
-        context['page_num'] = page_num
+        # Scan through the 20 pages of the current book
+        for p_num in range(1, 21):
+            page, _ = Page.objects.get_or_create(digital_book=book, page_number=p_num)
+            occupied = page.entries.values_list('row_number', flat=True)
+            for r_num in range(1, 32):
+                if r_num not in occupied:
+                    return page, r_num
         
-        # Calculate current row number for display (next available row on current page)
-        try:
-            current_book = member.digital_book
-            current_page = Page.objects.get(digital_book=current_book, page_number=page_num)
-            occupied_rows = current_page.entries.values_list('row_number', flat=True)
-            # Find first empty row on this page
-            next_row = next((i for i in range(1, 32) if i not in occupied_rows), 1)
-            context['row_num'] = next_row
-        except (DigitalBook.DoesNotExist, Page.DoesNotExist):
-            context['row_num'] = 1
+        # IF ENTIRE BOOK IS FULL -> CREATE BOOK #2, #3, etc.
+        # Find the highest book number for this member
+        last_book = DigitalBook.objects.filter(member=target_member).order_by('-book_number').first()
+        new_book_num = (last_book.book_number + 1) if last_book else 2
         
-        return context
+        # Create new book WITH the member parameter
+        new_book = DigitalBook.objects.create(
+            member=target_member,  # ✅ This is the critical fix
+            book_number=new_book_num
+        )
+        
+        # Create pages for the new book
+        pages = [Page(digital_book=new_book, page_number=i) for i in range(1, 21)]
+        Page.objects.bulk_create(pages)
+        
+        # Update the member to point to the latest book
+        target_member.current_book = new_book
+        target_member.save()
+        
+        # Return first row of first page in new book
+        first_page = Page.objects.get(digital_book=new_book, page_number=1)
+        return first_page, 1
 
     def form_valid(self, form):
         member = get_object_or_404(Member, id=self.kwargs['pk'])
@@ -245,74 +231,55 @@ class RecordEntryView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         entry_date = form.cleaned_data.get('date')
 
         with transaction.atomic():
-            # --- PROCESS DEPOSIT (Overflow) ---
             if total_deposit > 0:
                 num_rows = int(total_deposit // fixed_rate)
                 for _ in range(num_rows):
-                    # Get the next available slot (Auto-jumps to new page/book)
                     target_page, target_row = self.get_next_available_slot(member)
                     
-                    # 🌟 PAGE-ISOLATED BALANCE LOOKUP
-                    # Look only for the last entry on THIS SPECIFIC PAGE
-                    last_entry_on_page = Entry.objects.filter(
-                        member=member, 
-                        page=target_page # Isolated to the current page
-                    ).order_by('-row_number').first()
-                    
-                    # If this is Row 1 of a new page, balance is 0
-                    page_bal = last_entry_on_page.current_balance if last_entry_on_page else 0
-                    new_bal = page_bal + fixed_rate
-                    
+                    # Create the entry - current_balance will be calculated automatically
+                    # by the Entry model's save() method
                     Entry.objects.create(
-                        member=member, page=target_page, row_number=target_row,
-                        date=entry_date, deposit_amount=fixed_rate,
-                        current_balance=new_bal, status='APPROVED'
+                        member=member, 
+                        page=target_page, 
+                        row_number=target_row,
+                        date=entry_date, 
+                        deposit_amount=fixed_rate,
+                        status='APPROVED'
                     )
+                    
+                    # Update member's total contributions
+                    member.total_contributions += fixed_rate
+                    member.last_contribution_date = entry_date
 
-            # --- PROCESS WITHDRAWAL ---
             elif withdrawal > 0:
                 target_page, target_row = self.get_next_available_slot(member)
                 
-                last_entry_on_page = Entry.objects.filter(
-                    member=member, page=target_page
-                ).order_by('-row_number').first()
-                
-                page_bal = last_entry_on_page.current_balance if last_entry_on_page else 0
+                # Check page balance before withdrawal
+                last_entry = Entry.objects.filter(member=member, page=target_page).order_by('-row_number').first()
+                page_bal = last_entry.current_balance if last_entry else 0
                 
                 if withdrawal > page_bal:
                     messages.error(self.request, "Insufficient funds on this specific page!")
                     return redirect(self.request.path)
-
+                
+                # Create the entry
                 Entry.objects.create(
-                    member=member, page=target_page, row_number=target_row,
-                    date=entry_date, withdrawal_amount=withdrawal,
-                    current_balance=page_bal - withdrawal, status='APPROVED'
+                    member=member, 
+                    page=target_page, 
+                    row_number=target_row,
+                    date=entry_date, 
+                    withdrawal_amount=withdrawal,
+                    status='APPROVED'
                 )
+                
+                # Update member's total payouts
+                member.total_payouts += withdrawal
+            
+            # Save member updates
+            member.save()
 
-        messages.success(self.request, "Recorded. Page balance reset to zero.")
+        messages.success(self.request, "Transaction(s) recorded successfully.")
         return redirect('member_book', pk=member.id)
-    
-    def get_form(self, form_class=None):
-        """Customize form initialization"""
-        form = super().get_form(form_class)
-        
-        # Set initial values
-        member = get_object_or_404(Member, id=self.kwargs['pk'])
-        
-        # Pre-fill date with today
-        form.fields['date'].initial = timezone.now().date()
-        
-        # Optionally pre-fill deposit amount with group fixed rate
-        if 'deposit_amount' in form.fields:
-            form.fields['deposit_amount'].initial = member.group.fixed_deposit_amount
-        
-        return form
-    
-    def get_success_url(self):
-        """Define the success URL"""
-        member = get_object_or_404(Member, id=self.kwargs['pk'])
-        return reverse_lazy('member_book', kwargs={'pk': member.id})
-
 
 
 # --- CUSTOMER VIEWS (For Regular Members) ---
@@ -343,7 +310,8 @@ class CustomerBookView(LoginRequiredMixin, DetailView):
         page_num = self.request.GET.get('page', 1)
         
         try:
-            page = Page.objects.get(digital_book=self.object.digital_book, page_number=page_num)
+            book = self.object.current_book
+            page = Page.objects.get(digital_book=book, page_number=page_num)
             existing_entries = page.entries.all()
             
             # Create the 31-row structure (similar to MemberBookView)
@@ -364,7 +332,7 @@ class CustomerBookView(LoginRequiredMixin, DetailView):
             )['total'] or 0
             context['member_balance'] = total_deposits - total_withdrawals
             
-        except Page.DoesNotExist:
+        except (Page.DoesNotExist, AttributeError):
             context['error'] = "Book pages not found."
         
         return context
@@ -384,6 +352,7 @@ def login_success(request):
             return redirect('customer_view', pk=member.id)
         except AttributeError:
             return redirect('/')
+
 
 class MemberProfileUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Member
@@ -405,7 +374,6 @@ def landing_page(request):
     return render(request, 'landing.html')
 
 
-
 class GroupCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = Group
     fields = ['name', 'fixed_deposit_amount'] 
@@ -414,8 +382,8 @@ class GroupCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
     def test_func(self):
         return self.request.user.is_superuser
-
+    
     def form_valid(self, form):
-        # Automatically set the Superadmin as the manager of this group
-        form.instance.admin = self.request.user
-        return super().form_valid(form)
+        group = form.save()
+        messages.success(self.request, f"Successfully created group: {group.name}")
+        return redirect(self.success_url)

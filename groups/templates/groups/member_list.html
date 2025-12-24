@@ -11,6 +11,17 @@
     </a>
 </div>
 
+<!-- Search Form -->
+<div class="mb-4">
+    <form method="get" class="d-flex gap-2">
+        <input type="text" name="q" class="form-control" placeholder="Search by name or Member ID..." value="{{ request.GET.q }}">
+        <button type="submit" class="btn btn-primary">Search</button>
+        {% if request.GET.q %}
+            <a href="{% url 'member_list' %}" class="btn btn-outline-secondary">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
 <div class="card-custom shadow-sm p-0 overflow-hidden border-0">
     <table class="table table-hover align-middle mb-0">
         <thead class="bg-light">
@@ -19,6 +30,7 @@
                 <th>Member Name</th>
                 <th>Contact</th>
                 <th>Savings Group</th>
+                <th>Registered On</th>
                 <th>Status</th>
                 <th class="text-end pe-4">Actions</th>
             </tr>
@@ -38,8 +50,14 @@
                     </span>
                 </td>
 
+                <td class="small text-muted">
+                    {{ member.joined_at|date:"M d, Y"|default:"—" }}
+                </td>
+
                 <td>
-                    <span class="text-muted small">Standard Book #1</span>
+                    <span class="badge bg-{% if member.status == 'ACTIVE' %}success{% elif member.status == 'PENDING' %}warning{% elif member.status == 'INACTIVE' %}secondary{% else %}danger{% endif %}">
+                        {{ member.status|title }}
+                    </span>
                 </td>
 
                 <td class="text-end pe-4">
@@ -50,8 +68,12 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="6" class="text-center py-5 text-muted">
-                    No members found.
+                <td colspan="7" class="text-center py-5 text-muted">
+                    {% if request.GET.q %}
+                        No members found matching "{{ request.GET.q }}".
+                    {% else %}
+                        No members found.
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

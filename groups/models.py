@@ -115,9 +115,8 @@ class Group(models.Model):
 
 class Cycle(models.Model):
     """Represents a savings cycle within a group"""
-    # FIXED: Use string reference 'Group' instead of the class name
     group = models.ForeignKey(
-        'Group',  # <--- Wrap in quotes as you suggested
+        'Group',
         on_delete=models.CASCADE,
         related_name='cycles'
     )
@@ -154,7 +153,6 @@ class Cycle(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        # Ensures that for a specific group, the cycle_number is unique
         unique_together = ('group', 'cycle_number')
         ordering = ['group', 'cycle_number']
     
@@ -165,27 +163,6 @@ class Cycle(models.Model):
         """Auto-calculate pot_total when saving"""
         if not self.pot_total and self.status == 'ACTIVE':
             self.pot_total = self.group.total_monthly_pot
-        super().save(*args, **kwargs)
-
-class DigitalBook(models.Model):
-    """Digital ledger book for a member"""
-    member = models.ForeignKey('Member', on_delete=models.CASCADE, related_name='all_books', null=True)
-    book_number = models.PositiveIntegerField(
-        default=1,
-        help_text="The sequential number for this ledger book.",
-        unique=True
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    def __str__(self):
-        return f"Digital Book #{self.book_number}"
-    
-    def save(self, *args, **kwargs):
-        """Auto-increment book_number if not provided"""
-        if not self.book_number:
-            last_book = DigitalBook.objects.order_by('-book_number').first()
-            self.book_number = last_book.book_number + 1 if last_book else 1
         super().save(*args, **kwargs)
 
 class Member(models.Model):
@@ -204,21 +181,13 @@ class Member(models.Model):
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     
-    # FIXED: Use string reference 'Group' instead of 'groups.Group'
     group = models.ForeignKey(
-        'Group',  # <--- Simplified to just 'Group'
+        'Group',
         on_delete=models.CASCADE,
         related_name='members'
     )
-    
-    # FIXED: Use string reference 'DigitalBook' instead of 'groups.DigitalBook'
-    digital_book = models.OneToOneField(
-        'DigitalBook',  # <--- Simplified to just 'DigitalBook'
-        on_delete=models.PROTECT,
-        null=True, 
-        blank=True,
-        help_text="Digital ledger book assigned to this member"
-    )
+
+    joined_at = models.DateTimeField(auto_now_add=True)  # ✅ This is correct!
     
     # Status of the member
     STATUS_CHOICES = [
@@ -254,6 +223,16 @@ class Member(models.Model):
     emergency_contact_name = models.CharField(max_length=255, blank=True)
     emergency_contact_phone = models.CharField(max_length=20, blank=True)
     
+    # Track current book for quick access
+    current_book = models.ForeignKey(
+        'DigitalBook',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='current_member',
+        help_text="Member's current active digital book"
+    )
+    
     class Meta:
         unique_together = ('user', 'group')
         ordering = ['payout_order', 'joined_at']
@@ -262,16 +241,25 @@ class Member(models.Model):
         return f"{self.full_name} ({self.member_id}) - {self.group.name}"
     
     def save(self, *args, **kwargs):
-        """Auto-generate member_id and assign digital book if needed"""
-        # Generate member_id if not set
+        """Auto-generate ID and handle circular Book creation safely."""
         if not self.member_id:
             self.member_id = generate_next_member_id(self.group)
         
-        # Assign a digital book if not assigned and member is becoming active
-        if not self.digital_book and self.status == 'ACTIVE':
-            last_book = DigitalBook.objects.order_by('-book_number').first()
-            new_book_number = last_book.book_number + 1 if last_book else 1
-            self.digital_book = DigitalBook.objects.create(book_number=new_book_number)
+        # Check if this is a new member before saving
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+
+        # Now that Member has an ID, create the first book if needed
+        if is_new and self.status == 'ACTIVE' and not self.current_book:
+            new_book = DigitalBook.objects.create(member=self, book_number=1)
+            
+            # Create the 20 pages immediately
+            pages = [Page(digital_book=new_book, page_number=i) for i in range(1, 21)]
+            Page.objects.bulk_create(pages)
+            
+            # Link back to member and save again
+            self.current_book = new_book
+            super().save(update_fields=['current_book'])
         
         # Auto-assign payout_order if not set and group is rotating type
         if not self.payout_order and self.group.group_type == 'rotating':
@@ -279,6 +267,16 @@ class Member(models.Model):
             self.payout_order = (last_member.payout_order + 1) if last_member else 1
         
         super().save(*args, **kwargs)
+    
+    @property
+    def current_digital_book(self):
+        """Get the current digital book for this member"""
+        return self.current_book
+    
+    @property
+    def all_digital_books(self):
+        """Get all digital books for this member"""
+        return self.books.all().order_by('book_number')
     
     @property
     def net_balance(self):
@@ -295,19 +293,185 @@ class Member(models.Model):
         # You would need to implement this based on your cycle logic
         return True
 
+class DigitalBook(models.Model):
+    """Digital ledger book for a member - Following the requested structure"""
+    member = models.ForeignKey('Member', on_delete=models.CASCADE, related_name='books')
+    book_number = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ('member', 'book_number')
+        ordering = ['member', 'book_number']
+
+    def __str__(self):
+        return f"Book {self.book_number} for {self.member.full_name}"
+    
+    @property
+    def total_pages(self):
+        """Get total number of pages in this book"""
+        return self.pages.count()
+    
+    @property
+    def total_entries(self):
+        """Get total number of entries in this book"""
+        return Entry.objects.filter(page__digital_book=self).count()
+    
+    @property
+    def book_balance(self):
+        """Calculate the balance at the end of this book"""
+        last_entry = Entry.objects.filter(page__digital_book=self).order_by('-page__page_number', '-row_number').first()
+        return last_entry.current_balance if last_entry else 0
+
+class Page(models.Model):
+    """Page within a digital book - Following the requested structure"""
+    digital_book = models.ForeignKey(DigitalBook, on_delete=models.CASCADE, related_name='pages')
+    page_number = models.PositiveIntegerField()
+
+    class Meta:
+        unique_together = ('digital_book', 'page_number')
+        ordering = ['digital_book', 'page_number']
+
+    def __str__(self):
+        return f"Page {self.page_number} - {self.digital_book}"
+    
+    @property
+    def total_entries(self):
+        """Get total number of entries on this page"""
+        return self.entries.count()
+    
+    @property
+    def is_full(self):
+        """Check if this page is full (31 rows)"""
+        return self.entries.count() >= 31
+
+class Entry(models.Model):
+    """Ledger entry on a specific page"""
+    STATUS_CHOICES = [
+        ('APPROVED', 'Approved'),
+        ('PENDING', 'Pending'),
+        ('REJECTED', 'Rejected'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+    
+    PAYMENT_METHOD_CHOICES = [
+        ('CASH', 'Cash'),
+        ('MPESA', 'M-Pesa'),
+        ('BANK', 'Bank Transfer'),
+        ('CARD', 'Card Payment'),
+        ('OTHER', 'Other'),
+    ]
+    
+    member = models.ForeignKey('Member', on_delete=models.CASCADE, related_name='entries')
+    page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name='entries')
+    row_number = models.PositiveIntegerField()
+    
+    deposit_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    withdrawal_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    current_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    
+    date = models.DateField(default=timezone.now)
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='CASH')
+    transaction_reference = models.CharField(max_length=100, blank=True)
+    
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='APPROVED')
+    verified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='verified_entries'
+    )
+    notes = models.TextField(blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('page', 'row_number')
+        ordering = ['page__digital_book__book_number', 'page__page_number', 'row_number']
+        indexes = [
+            models.Index(fields=['member', 'date']),
+            models.Index(fields=['date']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        if self.deposit_amount > 0:
+            return f"Deposit: {self.deposit_amount} - Row {self.row_number}"
+        elif self.withdrawal_amount > 0:
+            return f"Withdrawal: {self.withdrawal_amount} - Row {self.row_number}"
+        else:
+            return f"Entry - Row {self.row_number}"
+    
+    def clean(self):
+        """Validate entry data"""
+        if self.deposit_amount > 0 and self.withdrawal_amount > 0:
+            raise ValidationError("An entry cannot have both deposit and withdrawal amounts.")
+        
+        if self.deposit_amount < 0 or self.withdrawal_amount < 0:
+            raise ValidationError("Amounts cannot be negative.")
+        
+        if self.row_number < 1 or self.row_number > 31:
+            raise ValidationError("Row number must be between 1 and 31.")
+    
+    @property
+    def transaction_type(self):
+        """Get the type of transaction"""
+        if self.deposit_amount > 0:
+            return 'DEPOSIT'
+        elif self.withdrawal_amount > 0:
+            return 'WITHDRAWAL'
+        else:
+            return 'ADJUSTMENT'
+    
+    @property
+    def amount(self):
+        """Get the transaction amount (positive for deposit, negative for withdrawal)"""
+        if self.deposit_amount > 0:
+            return self.deposit_amount
+        elif self.withdrawal_amount > 0:
+            return -self.withdrawal_amount
+        else:
+            return 0
+        
+
+    def save(self, *args, **kwargs):
+        """🌟 EACH PAGE STARTS FROM ZERO LOGIC 🌟"""
+        if not self.pk: # Only on creation
+            # Find last entry ONLY on the SAME page
+            last_entry = Entry.objects.filter(
+                member=self.member,
+                page=self.page
+            ).order_by('-row_number').first()
+            
+            # If no entry on this page, prev_bal is 0
+            prev_bal = last_entry.current_balance if last_entry else 0
+            
+            if self.deposit_amount > 0:
+                self.current_balance = prev_bal + self.deposit_amount
+            elif self.withdrawal_amount > 0:
+                self.current_balance = prev_bal - self.withdrawal_amount
+        
+        super().save(*args, **kwargs)
 
 class Payout(models.Model):
     """Records payouts made to members"""
+    PAYMENT_METHOD_CHOICES = [
+        ('CASH', 'Cash'),
+        ('MPESA', 'M-Pesa'),
+        ('BANK', 'Bank Transfer'),
+        ('CHEQUE', 'Cheque'),
+        ('OTHER', 'Other'),
+    ]
+    
     member = models.ForeignKey(
         Member,
         on_delete=models.CASCADE,
         related_name='payouts'
     )
     
-    # FIXED: Use string reference 'Cycle' instead of the class name
     cycle = models.ForeignKey(
-        'Cycle',  # <--- Wrap in quotes
+        'Cycle',
         on_delete=models.CASCADE,
         related_name='payouts'
     )
@@ -316,13 +480,7 @@ class Payout(models.Model):
     payout_date = models.DateTimeField(auto_now_add=True)
     payment_method = models.CharField(
         max_length=20,
-        choices=[
-            ('CASH', 'Cash'),
-            ('MPESA', 'M-Pesa'),
-            ('BANK', 'Bank Transfer'),
-            ('CHEQUE', 'Cheque'),
-            ('OTHER', 'Other'),
-        ],
+        choices=PAYMENT_METHOD_CHOICES,
         default='CASH'
     )
     transaction_reference = models.CharField(max_length=100, blank=True)
